@@ -13,6 +13,10 @@
 	@author      Claude Agent (primary coder)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+
 local HubBuilder = {}
 
 local SCATTER_SEED = 1337
@@ -60,7 +64,8 @@ local LAMP_SIZE = Vector3.new(3, 1, 1)
 local LAMP_POSITION = Vector3.new(0, 12, 0)
 local LAMP_COLOR = Color3.fromRGB(100, 70, 30)
 local LAMP_LIGHT_COLOR = Color3.fromRGB(255, 180, 80)
-local LAMP_LIGHT_BRIGHTNESS = 8
+local LAMP_LIGHT_BRIGHTNESS_NIGHT = 8
+local LAMP_LIGHT_BRIGHTNESS_DAY = 2
 local LAMP_LIGHT_RANGE = 40
 
 local DEFAULT_PART_NAMES: { [string]: boolean } = {
@@ -373,7 +378,9 @@ local function createPetromaks(parent: Instance)
 	local light = Instance.new("PointLight")
 	light.Name = "PetromaksGlow"
 	light.Color = LAMP_LIGHT_COLOR
-	light.Brightness = LAMP_LIGHT_BRIGHTNESS
+	light.Brightness = if Constants.LIGHTING_PRESET == "MYSTIC_NIGHT"
+		then LAMP_LIGHT_BRIGHTNESS_NIGHT
+		else LAMP_LIGHT_BRIGHTNESS_DAY
 	light.Range = LAMP_LIGHT_RANGE
 	light.Parent = lamp
 end

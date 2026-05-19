@@ -1,66 +1,60 @@
 --!strict
 --[[
 	@module      AtmosphereSetup
-	@description Single source of truth untuk visual environment: Lighting basic
-	             (Ambient/OutdoorAmbient/ClockTime/Fog), Lighting tune
-	             (Brightness/ShadowSoftness/Env scales), post-processing effects
-	             (Bloom/ColorCorrection/DepthOfField/Atmosphere), plus ambient
-	             particles workspace-level (GroundMist + SpiritFireflies +
-	             FallingPetals). Replaces previous LightingSetup module.
+	@description Visual environment toggle. Dispatcher AtmosphereSetup.apply()
+	             baca Constants.LIGHTING_PRESET dan routing ke:
+	               "DEBUG_BRIGHT" — siang bolong, no post-processing, no fog —
+	                               buat verify composition (semua keliatan).
+	               "MYSTIC_NIGHT" — malam jam 20 dengan Bloom/CC/DOF/Atmosphere
+	                               + fog + tint ungu-pink + particles full.
+	             Ambient particles juga toned-down di DEBUG mode (mist OFF,
+	             fireflies rate 2).
 	@author      Claude Agent (primary coder)
 ]]
 
 local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local AtmosphereSetup = {}
 
-local AMBIENT = Color3.fromRGB(80, 70, 60)
-local OUTDOOR_AMBIENT = Color3.fromRGB(40, 30, 50)
-local CLOCK_TIME = 20
-local FOG_COLOR = Color3.fromRGB(30, 25, 35)
-local FOG_START = 50
-local FOG_END = 180
+local PRESET_DEBUG = "DEBUG_BRIGHT"
+local PRESET_MYSTIC = "MYSTIC_NIGHT"
 
-local BRIGHTNESS = 0.5
-local SHADOW_SOFTNESS = 0.6
-local ENV_DIFFUSE_SCALE = 0.4
-local ENV_SPECULAR_SCALE = 0.4
-
-local BLOOM_INTENSITY = 1.5
-local BLOOM_SIZE = 24
-local BLOOM_THRESHOLD = 0.8
-
-local CC_SATURATION = 0.15
-local CC_CONTRAST = 0.1
-local CC_TINT = Color3.fromRGB(200, 180, 230)
-
-local DOF_FOCUS_DISTANCE = 30
-local DOF_IN_FOCUS_RADIUS = 15
-local DOF_FAR_INTENSITY = 0.6
-
-local ATMOSPHERE_DENSITY = 0.35
-local ATMOSPHERE_OFFSET = 0.25
-local ATMOSPHERE_COLOR = Color3.fromRGB(80, 60, 120)
-local ATMOSPHERE_DECAY = Color3.fromRGB(200, 80, 150)
-local ATMOSPHERE_GLARE = 1
+local BLOOM_NAME = "PusakaBloom"
+local CC_NAME = "PusakaColorCorrection"
+local DOF_NAME = "PusakaDOF"
+local ATMOSPHERE_NAME = "PusakaAtmosphere"
 
 local PARTICLE_ANCHOR_NAME = "AmbientParticleAnchor"
 local PARTICLE_ANCHOR_SIZE = Vector3.new(400, 1, 400)
 local PARTICLE_ANCHOR_POSITION = Vector3.new(0, 2, 0)
 
-local function setupLighting()
-	Lighting.Ambient = AMBIENT
-	Lighting.OutdoorAmbient = OUTDOOR_AMBIENT
-	Lighting.ClockTime = CLOCK_TIME
-	Lighting.FogColor = FOG_COLOR
-	Lighting.FogStart = FOG_START
-	Lighting.FogEnd = FOG_END
-	Lighting.Brightness = BRIGHTNESS
-	Lighting.GlobalShadows = true
-	Lighting.ShadowSoftness = SHADOW_SOFTNESS
-	Lighting.EnvironmentDiffuseScale = ENV_DIFFUSE_SCALE
-	Lighting.EnvironmentSpecularScale = ENV_SPECULAR_SCALE
-end
+local DEBUG_AMBIENT = Color3.fromRGB(150, 150, 150)
+local DEBUG_OUTDOOR_AMBIENT = Color3.fromRGB(180, 180, 200)
+
+local MYSTIC_AMBIENT = Color3.fromRGB(80, 70, 60)
+local MYSTIC_OUTDOOR_AMBIENT = Color3.fromRGB(40, 30, 50)
+local MYSTIC_FOG_COLOR = Color3.fromRGB(30, 25, 35)
+
+local MYSTIC_BLOOM_INTENSITY = 1.0
+local MYSTIC_BLOOM_SIZE = 24
+local MYSTIC_BLOOM_THRESHOLD = 0.8
+
+local MYSTIC_CC_SATURATION = 0.15
+local MYSTIC_CC_CONTRAST = 0.1
+local MYSTIC_CC_TINT = Color3.fromRGB(200, 180, 230)
+
+local MYSTIC_DOF_FOCUS_DISTANCE = 30
+local MYSTIC_DOF_IN_FOCUS_RADIUS = 30
+local MYSTIC_DOF_FAR_INTENSITY = 0.4
+
+local MYSTIC_ATMOSPHERE_DENSITY = 0.35
+local MYSTIC_ATMOSPHERE_OFFSET = 0.25
+local MYSTIC_ATMOSPHERE_COLOR = Color3.fromRGB(80, 60, 120)
+local MYSTIC_ATMOSPHERE_DECAY = Color3.fromRGB(200, 80, 150)
+local MYSTIC_ATMOSPHERE_GLARE = 1
 
 local function ensureEffect(className: string, name: string): Instance
 	local existing = Lighting:FindFirstChild(name)
@@ -76,46 +70,98 @@ local function ensureEffect(className: string, name: string): Instance
 	return fresh
 end
 
-local function setupBloom()
-	local bloom = ensureEffect("BloomEffect", "PusakaBloom") :: BloomEffect
-	bloom.Intensity = BLOOM_INTENSITY
-	bloom.Size = BLOOM_SIZE
-	bloom.Threshold = BLOOM_THRESHOLD
+local function disableEffectIfExists(name: string)
+	local existing = Lighting:FindFirstChild(name)
+	if not existing then
+		return
+	end
+	if existing:IsA("PostEffect") then
+		existing.Enabled = false
+	elseif existing.ClassName == "Atmosphere" then
+		local atm = existing :: Atmosphere
+		atm.Density = 0
+		atm.Glare = 0
+	end
 end
 
-local function setupColorCorrection()
-	local cc =
-		ensureEffect("ColorCorrectionEffect", "PusakaColorCorrection") :: ColorCorrectionEffect
-	cc.Saturation = CC_SATURATION
-	cc.Contrast = CC_CONTRAST
-	cc.TintColor = CC_TINT
+function AtmosphereSetup.applyDebugBright()
+	Lighting.ClockTime = 14
+	Lighting.Brightness = 3
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0.3
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
+	Lighting.Ambient = DEBUG_AMBIENT
+	Lighting.OutdoorAmbient = DEBUG_OUTDOOR_AMBIENT
+	Lighting.FogStart = 0
+	Lighting.FogEnd = 100000
+
+	disableEffectIfExists(BLOOM_NAME)
+	disableEffectIfExists(CC_NAME)
+	disableEffectIfExists(DOF_NAME)
+	disableEffectIfExists(ATMOSPHERE_NAME)
+
+	print("[Atmosphere] DEBUG_BRIGHT preset applied — semua keliatan jelas.")
 end
 
-local function setupDepthOfField()
-	local dof = ensureEffect("DepthOfFieldEffect", "PusakaDOF") :: DepthOfFieldEffect
-	dof.FocusDistance = DOF_FOCUS_DISTANCE
-	dof.InFocusRadius = DOF_IN_FOCUS_RADIUS
-	dof.FarIntensity = DOF_FAR_INTENSITY
-end
+function AtmosphereSetup.applyMysticNight()
+	Lighting.ClockTime = 20
+	Lighting.Brightness = 0.5
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0.6
+	Lighting.EnvironmentDiffuseScale = 0.4
+	Lighting.EnvironmentSpecularScale = 0.4
+	Lighting.Ambient = MYSTIC_AMBIENT
+	Lighting.OutdoorAmbient = MYSTIC_OUTDOOR_AMBIENT
+	Lighting.FogColor = MYSTIC_FOG_COLOR
+	Lighting.FogStart = 50
+	Lighting.FogEnd = 180
 
-local function setupAtmosphereEffect()
-	local atm = ensureEffect("Atmosphere", "PusakaAtmosphere") :: Atmosphere
-	atm.Density = ATMOSPHERE_DENSITY
-	atm.Offset = ATMOSPHERE_OFFSET
-	atm.Color = ATMOSPHERE_COLOR
-	atm.Decay = ATMOSPHERE_DECAY
-	atm.Glare = ATMOSPHERE_GLARE
+	local bloom = ensureEffect("BloomEffect", BLOOM_NAME) :: BloomEffect
+	bloom.Intensity = MYSTIC_BLOOM_INTENSITY
+	bloom.Size = MYSTIC_BLOOM_SIZE
+	bloom.Threshold = MYSTIC_BLOOM_THRESHOLD
+	bloom.Enabled = true
+
+	local cc = ensureEffect("ColorCorrectionEffect", CC_NAME) :: ColorCorrectionEffect
+	cc.Saturation = MYSTIC_CC_SATURATION
+	cc.Contrast = MYSTIC_CC_CONTRAST
+	cc.TintColor = MYSTIC_CC_TINT
+	cc.Enabled = true
+
+	local dof = ensureEffect("DepthOfFieldEffect", DOF_NAME) :: DepthOfFieldEffect
+	dof.FocusDistance = MYSTIC_DOF_FOCUS_DISTANCE
+	dof.InFocusRadius = MYSTIC_DOF_IN_FOCUS_RADIUS
+	dof.FarIntensity = MYSTIC_DOF_FAR_INTENSITY
+	dof.Enabled = true
+
+	local atm = ensureEffect("Atmosphere", ATMOSPHERE_NAME) :: Atmosphere
+	atm.Density = MYSTIC_ATMOSPHERE_DENSITY
+	atm.Offset = MYSTIC_ATMOSPHERE_OFFSET
+	atm.Color = MYSTIC_ATMOSPHERE_COLOR
+	atm.Decay = MYSTIC_ATMOSPHERE_DECAY
+	atm.Glare = MYSTIC_ATMOSPHERE_GLARE
+
+	print("[Atmosphere] MYSTIC_NIGHT preset applied.")
 end
 
 function AtmosphereSetup.apply()
-	setupLighting()
-	setupBloom()
-	setupColorCorrection()
-	setupDepthOfField()
-	setupAtmosphereEffect()
+	local preset = Constants.LIGHTING_PRESET
+	if preset == PRESET_DEBUG then
+		AtmosphereSetup.applyDebugBright()
+	elseif preset == PRESET_MYSTIC then
+		AtmosphereSetup.applyMysticNight()
+	else
+		warn(
+			("[Atmosphere] Unknown LIGHTING_PRESET: %s — falling back to DEBUG_BRIGHT"):format(
+				tostring(preset)
+			)
+		)
+		AtmosphereSetup.applyDebugBright()
+	end
 end
 
-local function makeGroundMist(parent: Instance)
+local function makeGroundMist(parent: Instance): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = "GroundMist"
 	emitter.Color = ColorSequence.new(Color3.fromRGB(180, 160, 200))
@@ -134,9 +180,10 @@ local function makeGroundMist(parent: Instance)
 	emitter.Speed = NumberRange.new(0.5)
 	emitter.SpreadAngle = Vector2.new(180, 180)
 	emitter.Parent = parent
+	return emitter
 end
 
-local function makeFireflies(parent: Instance)
+local function makeFireflies(parent: Instance): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = "SpiritFireflies"
 	emitter.Color = ColorSequence.new({
@@ -157,9 +204,10 @@ local function makeFireflies(parent: Instance)
 	emitter.RotSpeed = NumberRange.new(-90, 90)
 	emitter.SpreadAngle = Vector2.new(180, 180)
 	emitter.Parent = parent
+	return emitter
 end
 
-local function makeFallingPetals(parent: Instance)
+local function makeFallingPetals(parent: Instance): ParticleEmitter
 	local emitter = Instance.new("ParticleEmitter")
 	emitter.Name = "FallingPetals"
 	emitter.Color = ColorSequence.new(Color3.fromRGB(220, 180, 200))
@@ -176,6 +224,7 @@ local function makeFallingPetals(parent: Instance)
 	emitter.RotSpeed = NumberRange.new(-30, 30)
 	emitter.SpreadAngle = Vector2.new(40, 40)
 	emitter.Parent = parent
+	return emitter
 end
 
 function AtmosphereSetup.spawnAmbientParticles(): BasePart
@@ -193,9 +242,15 @@ function AtmosphereSetup.spawnAmbientParticles(): BasePart
 	anchor.Transparency = 1
 	anchor.Parent = workspace
 
-	makeGroundMist(anchor)
-	makeFireflies(anchor)
+	local mist = makeGroundMist(anchor)
+	local fireflies = makeFireflies(anchor)
 	makeFallingPetals(anchor)
+
+	if Constants.LIGHTING_PRESET == PRESET_DEBUG then
+		mist.Enabled = false
+		fireflies.Rate = 2
+	end
+
 	return anchor
 end
 
