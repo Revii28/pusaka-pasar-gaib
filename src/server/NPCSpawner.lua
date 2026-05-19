@@ -1,19 +1,26 @@
 --!strict
 --[[
 	@module      NPCSpawner
-	@description Spawn 4 NPC vendor permanen Pasar Gaib (Mbok Inem, Pak Tukijo,
-	             Nyai Sumi, Bandar Robux) di 4 arah mata angin dari SpawnLocation,
-	             jarak 15 studs. R6 rig manual minimum (HumanoidRootPart + Head +
-	             Torso + 4 limb + Humanoid w/ WalkSpeed=0). Tiap NPC dapat
-	             ProximityPrompt (key E, range 8 studs) yang fire bubble chat
-	             legacy `Chat:Chat()`. Placeholder MVP — refactor ke custom rig
-	             + TextChatService di Phase 4+.
+	@description Spawn 4 NPC vendor Pasar Gaib di 4 quadrant Middle Ring (jarak
+	             ~56 studs dari center, asymmetric). Tiap NPC dapat:
+	             (1) R6 rig placeholder (HRP + Head + Torso + 4 limb + Humanoid
+	             w/ WalkSpeed=0), (2) kios 8x8 dgn 4 pilar kayu + atap rumbia
+	             + counter table di depan (counter menghadap center), (3)
+	             ProximityPrompt "Ngobrol" key E range 8 yang fire Chat:Chat()
+	             bubble. NPC menghadap center hub. Export getVendorList() supaya
+	             GhostSpawner bisa nempelin hantu di belakang tiap NPC.
 	@author      Claude Agent (primary coder)
 ]]
 
 local Chat = game:GetService("Chat")
 
 local NPCSpawner = {}
+
+export type VendorInfo = {
+	name: string,
+	position: Vector3,
+	lookDirection: Vector3,
+}
 
 type VendorSpec = {
 	name: string,
@@ -31,32 +38,49 @@ local SKIN_COLOR = Color3.fromRGB(235, 178, 122)
 local LIMB_DARK = Color3.fromRGB(40, 30, 25)
 local ROOT_INVISIBLE = Color3.fromRGB(0, 0, 0)
 
+local KIOSK_POLE_SIZE = Vector3.new(1, 8, 1)
+local KIOSK_POLE_OFFSETS: { Vector3 } = {
+	Vector3.new(4, 4, 4),
+	Vector3.new(-4, 4, 4),
+	Vector3.new(4, 4, -4),
+	Vector3.new(-4, 4, -4),
+}
+local KIOSK_POLE_COLOR = Color3.fromRGB(80, 50, 25)
+local KIOSK_ROOF_SIZE = Vector3.new(10, 1, 10)
+local KIOSK_ROOF_OFFSET = Vector3.new(0, 8.5, 0)
+local KIOSK_ROOF_COLOR = Color3.fromRGB(120, 95, 50)
+local KIOSK_COUNTER_SIZE = Vector3.new(6, 3, 2)
+local KIOSK_COUNTER_OFFSET = Vector3.new(0, 1.5, -3)
+local KIOSK_COUNTER_COLOR = Color3.fromRGB(60, 35, 18)
+
 local VENDORS: { VendorSpec } = {
 	{
 		name = "Mbok Inem",
-		floorPosition = Vector3.new(0, 0, -15),
+		floorPosition = Vector3.new(38, 0, -42),
 		torsoColor = Color3.fromRGB(102, 30, 30),
 		dialogue = "Selamat datang. Cari kemenyan? Gw punya yang madu, paling wangi se-pasar.",
 	},
 	{
 		name = "Pak Tukijo",
-		floorPosition = Vector3.new(15, 0, 0),
+		floorPosition = Vector3.new(-52, 0, -22),
 		torsoColor = Color3.fromRGB(30, 40, 80),
 		dialogue = "Bunga 7 rupa, daun sirih, telur cemani — komplit di sini. Mau ritual apa malam ini?",
 	},
 	{
 		name = "Nyai Sumi",
-		floorPosition = Vector3.new(0, 0, 15),
+		floorPosition = Vector3.new(45, 0, 35),
 		torsoColor = Color3.fromRGB(20, 15, 25),
 		dialogue = "Mampir, Nak. Tasbih putih buat nolak bala, lilin merah buat ritual malam, air mawar buat sucikan diri. Mau yang mana?",
 	},
 	{
 		name = "Bandar Robux",
-		floorPosition = Vector3.new(-15, 0, 0),
+		floorPosition = Vector3.new(-30, 0, 48),
 		torsoColor = Color3.fromRGB(40, 130, 60),
 		dialogue = "Robux numpuk, Koin Gaib menipis? Tuker di sini, rate adil. Jangan ke bandar lain, banyak yang nipu.",
 	},
 }
+
+local vendorInfos: { VendorInfo } = {}
 
 local function makePart(
 	name: string,
@@ -117,6 +141,51 @@ local function buildRig(spec: VendorSpec): Model
 	return model
 end
 
+local function buildKiosk(npcPosition: Vector3, lookDirection: Vector3, parent: Instance): Model
+	local kiosk = Instance.new("Model")
+	kiosk.Name = "Kiosk"
+
+	local kioskCFrame = CFrame.lookAt(npcPosition, npcPosition + lookDirection)
+
+	for i, localOffset in ipairs(KIOSK_POLE_OFFSETS) do
+		local pole = Instance.new("Part")
+		pole.Name = ("Pole%d"):format(i)
+		pole.Size = KIOSK_POLE_SIZE
+		pole.CFrame = kioskCFrame * CFrame.new(localOffset)
+		pole.Anchored = true
+		pole.Material = Enum.Material.WoodPlanks
+		pole.Color = KIOSK_POLE_COLOR
+		pole.TopSurface = Enum.SurfaceType.Smooth
+		pole.BottomSurface = Enum.SurfaceType.Smooth
+		pole.Parent = kiosk
+	end
+
+	local roof = Instance.new("Part")
+	roof.Name = "Roof"
+	roof.Size = KIOSK_ROOF_SIZE
+	roof.CFrame = kioskCFrame * CFrame.new(KIOSK_ROOF_OFFSET)
+	roof.Anchored = true
+	roof.Material = Enum.Material.Fabric
+	roof.Color = KIOSK_ROOF_COLOR
+	roof.TopSurface = Enum.SurfaceType.Smooth
+	roof.BottomSurface = Enum.SurfaceType.Smooth
+	roof.Parent = kiosk
+
+	local counter = Instance.new("Part")
+	counter.Name = "Counter"
+	counter.Size = KIOSK_COUNTER_SIZE
+	counter.CFrame = kioskCFrame * CFrame.new(KIOSK_COUNTER_OFFSET)
+	counter.Anchored = true
+	counter.Material = Enum.Material.Wood
+	counter.Color = KIOSK_COUNTER_COLOR
+	counter.TopSurface = Enum.SurfaceType.Smooth
+	counter.BottomSurface = Enum.SurfaceType.Smooth
+	counter.Parent = kiosk
+
+	kiosk.Parent = parent
+	return kiosk
+end
+
 local function attachPrompt(model: Model, spec: VendorSpec)
 	local root = model.PrimaryPart
 	if not root then
@@ -146,13 +215,32 @@ end
 
 function NPCSpawner.spawnAll(): { Model }
 	local spawned: { Model } = {}
+	table.clear(vendorInfos)
+
 	for _, spec in ipairs(VENDORS) do
-		local model = buildRig(spec)
-		attachPrompt(model, spec)
-		model.Parent = workspace
-		table.insert(spawned, model)
+		local placePosition = spec.floorPosition + Vector3.new(0, FEET_Y_OFFSET, 0)
+		local lookTarget = HUB_CENTER + Vector3.new(0, FEET_Y_OFFSET, 0)
+		local lookDirection = (lookTarget - placePosition).Unit
+
+		local rig = buildRig(spec)
+		attachPrompt(rig, spec)
+		rig.Parent = workspace
+
+		buildKiosk(placePosition, lookDirection, workspace)
+
+		table.insert(spawned, rig)
+		table.insert(vendorInfos, {
+			name = spec.name,
+			position = placePosition,
+			lookDirection = lookDirection,
+		})
 	end
+
 	return spawned
+end
+
+function NPCSpawner.getVendorList(): { VendorInfo }
+	return vendorInfos
 end
 
 return NPCSpawner

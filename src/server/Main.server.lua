@@ -20,6 +20,7 @@ local Constants = require(sharedFolder:WaitForChild("Constants"))
 local LightingSetup = require(serverFolder:WaitForChild("LightingSetup"))
 local HubBuilder = require(serverFolder:WaitForChild("HubBuilder"))
 local NPCSpawner = require(serverFolder:WaitForChild("NPCSpawner"))
+local GhostSpawner = require(serverFolder:WaitForChild("GhostSpawner"))
 
 print(("[Main] %s server start! (v%s)"):format(Constants.GAME_NAME, Constants.VERSION))
 
@@ -31,6 +32,9 @@ print("[Main] Pasar Gaib hub built.")
 
 local vendors = NPCSpawner.spawnAll()
 print(("[Main] %d NPC vendor spawned."):format(#vendors))
+
+local ghosts = GhostSpawner.spawnAll(NPCSpawner.getVendorList())
+print(("[Main] %d ghost companion spawned."):format(#ghosts))
 
 print("[Main] Boot complete.")
 
