@@ -2,15 +2,20 @@
 --[[
 	@module      Welcome
 	@description Client-side welcome banner. Spawn TextLabel "Selamat datang di
-	             Pasar Gaib" di tengah layar saat player join. Phase 2 smoke test —
-	             nanti diganti / di-extend pas UI sistem Pasar Gaib jadi.
+	             Pasar Gaib" di tengah layar saat player join, tampil 4 detik,
+	             fade out 1 detik (Quad easing Out), lalu Destroy. Phase 2 smoke
+	             test — nanti diganti / di-extend pas UI sistem Pasar Gaib jadi.
 	@author      Claude Agent (primary coder)
 ]]
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+
+local DISPLAY_DURATION = 4
+local FADE_DURATION = 1
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
@@ -43,3 +48,17 @@ label.Parent = screenGui
 if Constants.DEBUG_MODE then
 	print(("[Welcome] UI mounted for %s (v%s)"):format(player.Name, Constants.VERSION))
 end
+
+task.wait(DISPLAY_DURATION)
+
+local fadeInfo = TweenInfo.new(FADE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local fadeTween = TweenService:Create(label, fadeInfo, {
+	BackgroundTransparency = 1,
+	TextTransparency = 1,
+	TextStrokeTransparency = 1,
+})
+fadeTween:Play()
+fadeTween.Completed:Wait()
+
+screenGui:Destroy()
+print(("[Welcome] UI auto-dismissed for %s"):format(player.Name))

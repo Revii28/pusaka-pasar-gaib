@@ -17,10 +17,14 @@ local serverFolder = ServerScriptService:WaitForChild("Server")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 
 local Constants = require(sharedFolder:WaitForChild("Constants"))
+local LightingSetup = require(serverFolder:WaitForChild("LightingSetup"))
 local HubBuilder = require(serverFolder:WaitForChild("HubBuilder"))
 local NPCSpawner = require(serverFolder:WaitForChild("NPCSpawner"))
 
 print(("[Main] %s server start! (v%s)"):format(Constants.GAME_NAME, Constants.VERSION))
+
+LightingSetup.apply()
+print("[Main] Lighting applied (mystic night).")
 
 HubBuilder.build()
 print("[Main] Pasar Gaib hub built.")

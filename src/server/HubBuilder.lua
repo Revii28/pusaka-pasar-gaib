@@ -2,13 +2,20 @@
 --[[
 	@module      HubBuilder
 	@description Build placeholder Pasar Gaib hub: lantai kayu 100x100 + 4 pillar
-	             penanda Inner Ring + SpawnLocation di tengah. Hapus default Baseplate
-	             kalau ada (cegah double-floor). Phase 3 Minggu 1 scaffold — nanti
+	             penanda Inner Ring + SpawnLocation di tengah. Wipe default world
+	             dulu (Terrain:Clear() + destroy default BaseParts) supaya gak ada
+	             rumput liar / baseplate nyembul. Phase 3 Minggu 1 scaffold —
 	             diganti terrain artist + custom prop saat Phase 6+.
 	@author      Claude Agent (primary coder)
 ]]
 
 local HubBuilder = {}
+
+local DEFAULT_PART_NAMES: { [string]: boolean } = {
+	Baseplate = true,
+	SpawnLocation = true,
+	Part = true,
+}
 
 local FLOOR_SIZE = Vector3.new(100, 1, 100)
 local FLOOR_COLOR = Color3.fromRGB(80, 45, 20)
@@ -26,10 +33,12 @@ local SPAWN_SIZE = Vector3.new(8, 1, 8)
 local SPAWN_POSITION = Vector3.new(0, 0.5, 0)
 local SPAWN_COLOR = Color3.fromRGB(212, 175, 55)
 
-local function destroyDefaultBaseplate()
-	local existing = workspace:FindFirstChild("Baseplate")
-	if existing then
-		existing:Destroy()
+local function clearDefaultWorld()
+	workspace.Terrain:Clear()
+	for _, child in workspace:GetChildren() do
+		if child:IsA("BasePart") and DEFAULT_PART_NAMES[child.Name] then
+			child:Destroy()
+		end
 	end
 end
 
@@ -77,7 +86,7 @@ local function createSpawn(parent: Instance): SpawnLocation
 end
 
 function HubBuilder.build(): Model
-	destroyDefaultBaseplate()
+	clearDefaultWorld()
 
 	local hub = Instance.new("Model")
 	hub.Name = "PasarGaibHub"
