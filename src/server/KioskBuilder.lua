@@ -14,7 +14,10 @@
 	@author      Claude Agent (primary coder)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+
+local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local KioskBuilder = {}
 
@@ -198,6 +201,10 @@ local function buildLampion(kiosk: Model, base: CFrame, localOffset: Vector3, in
 	light.Range = LAMPION_LIGHT_RANGE
 	light.Parent = lampion
 
+	if not Constants.PERFORMANCE.LAMPION_FLICKER_ENABLED then
+		return
+	end
+
 	local random = Random.new()
 	local period = 0.5 + random:NextNumber() * 1.0
 	local delaySeconds = random:NextNumber() * period
@@ -353,6 +360,15 @@ function KioskBuilder.build(
 	vendorName: string,
 	parent: Instance
 ): Model
+	print(
+		("[KioskBuilder] Building kiosk for %s at (%.0f, %.0f, %.0f)..."):format(
+			vendorName,
+			npcPosition.X,
+			npcPosition.Y,
+			npcPosition.Z
+		)
+	)
+
 	local kiosk = Instance.new("Model")
 	kiosk.Name = ("Kiosk_%s"):format(vendorName:gsub(" ", ""))
 
@@ -369,6 +385,12 @@ function KioskBuilder.build(
 	buildSignboard(kiosk, base, vendorName)
 
 	kiosk.Parent = parent
+	print(
+		("[KioskBuilder] Kiosk for %s complete (%d parts)."):format(
+			vendorName,
+			#kiosk:GetDescendants()
+		)
+	)
 	return kiosk
 end
 

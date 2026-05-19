@@ -17,8 +17,11 @@
 	@author      Claude Agent (primary coder)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
+
+local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 
 local GhostSpawner = {}
 
@@ -138,7 +141,7 @@ local function attachAura(
 	emitter.Name = "Aura"
 	emitter.Color = ColorSequence.new(config.color)
 	emitter.Lifetime = NumberRange.new(config.lifetimeMin, config.lifetimeMax)
-	emitter.Rate = config.rate
+	emitter.Rate = config.rate * Constants.PERFORMANCE.GHOST_AURA_PARTICLE_RATE_MULTIPLIER
 	emitter.Size = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, config.sizeMin),
 		NumberSequenceKeypoint.new(1, config.sizeMax),
@@ -364,16 +367,19 @@ local function buildKuntilanak(base: Vector3): Model
 			parent = model,
 		})
 
+		local originalCFrame = hair.CFrame
+		local periodSec = 2 + (i % 3) * 0.3
+		local delaySeconds = (i / hairCount) * 0.5
 		local swayInfo = TweenInfo.new(
-			2 + (i % 3) * 0.3,
+			periodSec,
 			Enum.EasingStyle.Sine,
 			Enum.EasingDirection.InOut,
 			-1,
 			true,
-			(i / hairCount) * 0.5
+			delaySeconds
 		)
 		TweenService:Create(hair, swayInfo, {
-			Orientation = Vector3.new(0, 0, 5),
+			CFrame = originalCFrame * CFrame.Angles(0, 0, math.rad(5)),
 		}):Play()
 	end
 
@@ -526,9 +532,26 @@ function GhostSpawner.spawnAll(vendorList: { VendorInfo }): { Model }
 		local groundPos =
 			Vector3.new(vendor.position.X + behindOffset.X, 0, vendor.position.Z + behindOffset.Z)
 
-		local ghost = builder(groundPos)
+		print(
+			("[GhostSpawner] Spawning %s (companion of %s) at (%.0f, %.0f, %.0f)..."):format(
+				ghostType,
+				vendor.name,
+				groundPos.X,
+				groundPos.Y,
+				groundPos.Z
+			)
+		)
+
+		local ok, ghostOrErr = pcall(builder, groundPos)
+		if not ok then
+			warn(("[GhostSpawner] %s build FAILED: %s"):format(ghostType, tostring(ghostOrErr)))
+			continue
+		end
+
+		local ghost = ghostOrErr :: Model
 		ghost.Parent = workspace
 		table.insert(spawned, ghost)
+		print(("[GhostSpawner] %s spawned."):format(ghostType))
 	end
 	return spawned
 end

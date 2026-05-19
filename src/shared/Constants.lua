@@ -19,5 +19,15 @@ Constants.DEBUG_MODE = true
 -- Default DEBUG_BRIGHT sampai user verify semua prop keliatan, lalu ganti.
 Constants.LIGHTING_PRESET = "DEBUG_BRIGHT"
 
+-- Performance toggles. Default = full quality. Turunin manual kalau frame
+-- rate jelek di low-end device. Lampion tween Random.new() default seed
+-- (clock-based) by design — flicker desync antar lampion non-deterministic.
+Constants.PERFORMANCE = {
+	LAMPION_FLICKER_ENABLED = true,
+	TREE_LEAF_COUNT_MAX = 6,
+	GHOST_AURA_PARTICLE_RATE_MULTIPLIER = 1.0,
+}
+table.freeze(Constants.PERFORMANCE)
+
 table.freeze(Constants)
 return Constants

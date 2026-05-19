@@ -76,6 +76,7 @@ local DEFAULT_PART_NAMES: { [string]: boolean } = {
 
 local function clearDefaultWorld()
 	workspace.Terrain:Clear()
+	print("[HubBuilder] Terrain cleared.")
 	for _, child in workspace:GetChildren() do
 		if child:IsA("BasePart") and DEFAULT_PART_NAMES[child.Name] then
 			child:Destroy()
@@ -85,32 +86,67 @@ local function clearDefaultWorld()
 	if existingHub then
 		existingHub:Destroy()
 	end
+	print("[HubBuilder] Default world cleared.")
 end
 
 local function buildTerrainBase(random: Random)
 	local terrain = workspace.Terrain
 	terrain:FillBlock(TERRAIN_BLOCK_CFRAME, TERRAIN_BLOCK_SIZE, Enum.Material.Grass)
+	print("[HubBuilder] Terrain filled with grass (400x10x400).")
 
 	local mudCount = random:NextInteger(MUD_PATCH_MIN, MUD_PATCH_MAX)
+	local mudSuccess = 0
 	for _ = 1, mudCount do
 		local angle = random:NextNumber() * 2 * math.pi
 		local radius = random:NextNumber(MUD_PATCH_RADIUS_MIN, MUD_PATCH_RADIUS_MAX)
 		local center = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 		local region = Region3.new(center - MUD_PATCH_HALF, center + MUD_PATCH_HALF)
-		terrain:FillRegion(region:ExpandToGrid(4), 4, Enum.Material.Mud)
+		local ok, err = pcall(function()
+			terrain:FillRegion(region:ExpandToGrid(4), 4, Enum.Material.Mud)
+		end)
+		if ok then
+			mudSuccess += 1
+		else
+			warn(("[HubBuilder] Mud FillRegion failed: %s"):format(tostring(err)))
+		end
 	end
+	print(("[HubBuilder] %d/%d mud patches scattered."):format(mudSuccess, mudCount))
 
 	local leafyCount = random:NextInteger(LEAFY_PATCH_MIN, LEAFY_PATCH_MAX)
+	local leafySuccess = 0
 	for _ = 1, leafyCount do
 		local angle = random:NextNumber() * 2 * math.pi
 		local radius = random:NextNumber(LEAFY_PATCH_RADIUS_MIN, LEAFY_PATCH_RADIUS_MAX)
 		local center = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 		local region = Region3.new(center - LEAFY_PATCH_HALF, center + LEAFY_PATCH_HALF)
-		terrain:FillRegion(region:ExpandToGrid(4), 4, Enum.Material.LeafyGrass)
+		local ok, err = pcall(function()
+			terrain:FillRegion(region:ExpandToGrid(4), 4, Enum.Material.LeafyGrass)
+		end)
+		if ok then
+			leafySuccess += 1
+		else
+			warn(("[HubBuilder] Leafy FillRegion failed: %s"):format(tostring(err)))
+		end
 	end
+	print(("[HubBuilder] %d/%d leafy patches scattered."):format(leafySuccess, leafyCount))
 
-	terrain.Decoration = true
-	terrain.GrassLength = TERRAIN_GRASS_LENGTH
+	local decoOk, decoErr = pcall(function()
+		terrain.Decoration = true
+		terrain.GrassLength = TERRAIN_GRASS_LENGTH
+	end)
+	if decoOk then
+		print(
+			("[HubBuilder] Auto-grass decoration enabled (length %.1f)."):format(
+				TERRAIN_GRASS_LENGTH
+			)
+		)
+	else
+		warn(
+			("[HubBuilder] Terrain.Decoration/GrassLength not supported — skipped: %s"):format(
+				tostring(decoErr)
+			)
+		)
+	end
 end
 
 local function jitterColor(base: Color3, random: Random, amount: number): Color3
@@ -201,7 +237,8 @@ local function buildBranch(
 end
 
 local function buildLeafCluster(parent: Instance, trunkX: number, trunkZ: number, random: Random)
-	local sphereCount = random:NextInteger(4, 6)
+	local maxLeaves = math.max(4, math.min(6, Constants.PERFORMANCE.TREE_LEAF_COUNT_MAX))
+	local sphereCount = random:NextInteger(4, maxLeaves)
 	for i = 1, sphereCount do
 		local diameter = random:NextNumber(6, 10)
 		local offsetX = random:NextNumber(-3, 3)
@@ -338,14 +375,43 @@ local function buildGravestone(basePos: Vector3, random: Random, parent: Instanc
 end
 
 local function scatterScene(parent: Instance, random: Random)
-	for _ = 1, TREE_COUNT do
+	local treeSuccess = 0
+	local deadTreeCount = 0
+	for i = 1, TREE_COUNT do
 		local pos = pickOuterRingPosition(random)
 		local isDead = random:NextNumber() < DEAD_TREE_CHANCE
-		generateTree(pos, isDead, parent, random)
+		local ok, err = pcall(function()
+			generateTree(pos, isDead, parent, random)
+		end)
+		if ok then
+			treeSuccess += 1
+			if isDead then
+				deadTreeCount += 1
+			end
+		else
+			warn(("[HubBuilder] Tree %d generation failed: %s"):format(i, tostring(err)))
+		end
 	end
-	for _ = 1, GRAVESTONE_COUNT do
-		buildGravestone(pickOuterRingPosition(random), random, parent)
+	print(
+		("[HubBuilder] %d/%d trees scattered (%d dead variants)."):format(
+			treeSuccess,
+			TREE_COUNT,
+			deadTreeCount
+		)
+	)
+
+	local graveSuccess = 0
+	for i = 1, GRAVESTONE_COUNT do
+		local ok, err = pcall(function()
+			buildGravestone(pickOuterRingPosition(random), random, parent)
+		end)
+		if ok then
+			graveSuccess += 1
+		else
+			warn(("[HubBuilder] Gravestone %d failed: %s"):format(i, tostring(err)))
+		end
 	end
+	print(("[HubBuilder] %d/%d gravestones scattered."):format(graveSuccess, GRAVESTONE_COUNT))
 end
 
 local function createSpawn(parent: Instance): SpawnLocation
@@ -385,20 +451,41 @@ local function createPetromaks(parent: Instance)
 	light.Parent = lamp
 end
 
+local function safeStep(label: string, fn: () -> ())
+	local ok, err = pcall(fn)
+	if not ok then
+		warn(("[HubBuilder] %s FAILED: %s"):format(label, tostring(err)))
+	end
+end
+
 function HubBuilder.build(): Model
-	clearDefaultWorld()
+	safeStep("clearDefaultWorld", clearDefaultWorld)
 
 	local random = Random.new(SCATTER_SEED)
-	buildTerrainBase(random)
+	safeStep("buildTerrainBase", function()
+		buildTerrainBase(random)
+	end)
 
 	local hub = Instance.new("Model")
 	hub.Name = "PasarGaibHub"
 	hub.Parent = workspace
 
-	scatterScene(hub, random)
-	createSpawn(hub)
-	createPetromaks(hub)
+	safeStep("scatterScene", function()
+		scatterScene(hub, random)
+	end)
+	safeStep("createSpawn", function()
+		createSpawn(hub)
+		print("[HubBuilder] SpawnLocation placed at (0, 0.5, 0).")
+	end)
+	safeStep("createPetromaks", function()
+		createPetromaks(hub)
+		local brightnessLabel = if Constants.LIGHTING_PRESET == "MYSTIC_NIGHT"
+			then "night/8"
+			else "day/2"
+		print(("[HubBuilder] Petromaks lit (%s)."):format(brightnessLabel))
+	end)
 
+	print(("[HubBuilder] Hub model assembled with %d descendants."):format(#hub:GetDescendants()))
 	return hub
 end
 

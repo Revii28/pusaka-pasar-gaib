@@ -162,22 +162,42 @@ function NPCSpawner.spawnAll(): { Model }
 	table.clear(vendorInfos)
 
 	for _, spec in ipairs(VENDORS) do
+		print(
+			("[NPCSpawner] Spawning %s at (%.0f, %.0f, %.0f)..."):format(
+				spec.name,
+				spec.floorPosition.X,
+				spec.floorPosition.Y,
+				spec.floorPosition.Z
+			)
+		)
 		local placePosition = spec.floorPosition + Vector3.new(0, FEET_Y_OFFSET, 0)
 		local lookTarget = HUB_CENTER + Vector3.new(0, FEET_Y_OFFSET, 0)
 		local lookDirection = (lookTarget - placePosition).Unit
 
-		local rig = buildRig(spec)
-		attachPrompt(rig, spec)
-		rig.Parent = workspace
+		local rigOk, rigErr = pcall(function()
+			local rig = buildRig(spec)
+			attachPrompt(rig, spec)
+			rig.Parent = workspace
+			table.insert(spawned, rig)
+		end)
+		if not rigOk then
+			warn(("[NPCSpawner] %s rig FAILED: %s"):format(spec.name, tostring(rigErr)))
+			continue
+		end
 
-		KioskBuilder.build(placePosition, lookDirection, spec.name, workspace)
+		local kioskOk, kioskErr = pcall(function()
+			KioskBuilder.build(placePosition, lookDirection, spec.name, workspace)
+		end)
+		if not kioskOk then
+			warn(("[NPCSpawner] %s kiosk FAILED: %s"):format(spec.name, tostring(kioskErr)))
+		end
 
-		table.insert(spawned, rig)
 		table.insert(vendorInfos, {
 			name = spec.name,
 			position = placePosition,
 			lookDirection = lookDirection,
 		})
+		print(("[NPCSpawner] %s spawned (rig + kiosk done)."):format(spec.name))
 	end
 
 	return spawned
