@@ -17,11 +17,14 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local serverFolder = ServerScriptService:WaitForChild("Server")
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 
+local servicesFolder = serverFolder:WaitForChild("services")
 local Constants = require(sharedFolder:WaitForChild("Constants"))
 local AtmosphereSetup = require(serverFolder:WaitForChild("AtmosphereSetup"))
 local HubBuilder = require(serverFolder:WaitForChild("HubBuilder"))
 local NPCSpawner = require(serverFolder:WaitForChild("NPCSpawner"))
 local GhostSpawner = require(serverFolder:WaitForChild("GhostSpawner"))
+local MapManager = require(servicesFolder:WaitForChild("MapManager"))
+local PortalHub = require(servicesFolder:WaitForChild("PortalHub"))
 
 local function safeRun(label: string, fn: () -> any, successMsg: string?): any?
 	local ok, result = pcall(fn)
@@ -56,6 +59,12 @@ end) :: { Model }?
 if ghosts then
 	print(("[Main] %d ghost companion spawned (flying mode)."):format(#ghosts))
 end
+
+print("[Main] Building 12 maps...")
+safeRun("MapManager.buildAll", MapManager.buildAll, "[Main] Maps ready.")
+
+print("[Main] Spawning 12 portals at hub...")
+safeRun("PortalHub.build", PortalHub.build, "[Main] Portal hub ready.")
 
 safeRun(
 	"AtmosphereSetup.spawnAmbientParticles",
