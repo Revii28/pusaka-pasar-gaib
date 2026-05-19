@@ -1,15 +1,15 @@
 --!strict
 --[[
 	@module      HubBuilder
-	@description Build placeholder Pasar Gaib hub — pivot dari indoor market ke
-	             pasar setan outdoor di kebon angker:
-	             ground grass 300x300, scatter trees/grass/gravestones di outer
-	             ring, SpawnLocation gold di center + petromaks lamp glow orange.
-	             Inner Ring (0-25) reserved spawn + leaderboard. Middle Ring
-	             (25-60) reserved NPC vendor + kios player. Outer Ring (60-150)
-	             dense pohon. Scatter pakai seeded Random (deterministic).
-	             Phase 3 Minggu 1 rev2 — diganti terrain artist + custom prop
-	             Phase 6+.
+	@description Build Pasar Setan kebon: Roblox Terrain real (FillBlock Grass
+	             400x10x400 base + scattered Mud edge patches + LeafyGrass outer
+	             ring belts), Decoration=true + GrassLength=1.5 untuk auto rumput
+	             blade. Layered trees outer ring (3-segment trunk dengan tilt
+	             random per segment + bark ridge sim + 2-3 thin branches +
+	             4-6 sphere leaves cluster); 25% chance jadi pohon mati twisted.
+	             Trunk base dibungkus ParticleEmitter mist tipis. Gravestones
+	             Slate dengan tilt random. Center punya SpawnLocation gold +
+	             petromaks lamp glow orange.
 	@author      Claude Agent (primary coder)
 ]]
 
@@ -17,24 +17,36 @@ local HubBuilder = {}
 
 local SCATTER_SEED = 1337
 
-local GROUND_SIZE = Vector3.new(300, 1, 300)
-local GROUND_POSITION = Vector3.new(0, -0.5, 0)
-local GROUND_COLOR = Color3.fromRGB(60, 75, 50)
+local TERRAIN_BLOCK_CFRAME = CFrame.new(0, -5, 0)
+local TERRAIN_BLOCK_SIZE = Vector3.new(400, 10, 400)
+local TERRAIN_GRASS_LENGTH = 1.5
 
-local INNER_RING_RADIUS = 25
+local MUD_PATCH_MIN = 8
+local MUD_PATCH_MAX = 12
+local MUD_PATCH_RADIUS_MIN = 110
+local MUD_PATCH_RADIUS_MAX = 180
+local MUD_PATCH_HALF = Vector3.new(15, 1.5, 15)
+
+local LEAFY_PATCH_MIN = 3
+local LEAFY_PATCH_MAX = 4
+local LEAFY_PATCH_RADIUS_MIN = 80
+local LEAFY_PATCH_RADIUS_MAX = 140
+local LEAFY_PATCH_HALF = Vector3.new(30, 1.5, 30)
+
 local MIDDLE_RING_OUTER = 60
 local OUTER_RING_OUTER = 150
 
 local TREE_COUNT = 15
-local TRUNK_HEIGHT = 15
-local TRUNK_DIAMETER = 4
-local LEAVES_DIAMETER = 12
-local TRUNK_COLOR = Color3.fromRGB(80, 50, 25)
-local LEAVES_COLOR = Color3.fromRGB(35, 70, 75)
+local DEAD_TREE_CHANCE = 0.25
 
-local GRASS_COUNT = 25
-local GRASS_SIZE = Vector3.new(2, 4, 2)
-local GRASS_COLOR = Color3.fromRGB(40, 65, 35)
+local TRUNK_BASE_COLOR = Color3.fromRGB(80, 55, 30)
+local TRUNK_DEAD_COLOR = Color3.fromRGB(40, 30, 20)
+local LEAF_BASE_COLORS: { Color3 } = {
+	Color3.fromRGB(35, 75, 45),
+	Color3.fromRGB(45, 85, 50),
+	Color3.fromRGB(40, 70, 45),
+	Color3.fromRGB(50, 80, 55),
+}
 
 local GRAVESTONE_COUNT = 6
 local GRAVESTONE_SIZE = Vector3.new(2, 3, 1)
@@ -70,18 +82,233 @@ local function clearDefaultWorld()
 	end
 end
 
-local function createGround(parent: Instance): Part
-	local ground = Instance.new("Part")
-	ground.Name = "Ground"
-	ground.Size = GROUND_SIZE
-	ground.Position = GROUND_POSITION
-	ground.Anchored = true
-	ground.Material = Enum.Material.Grass
-	ground.Color = GROUND_COLOR
-	ground.TopSurface = Enum.SurfaceType.Smooth
-	ground.BottomSurface = Enum.SurfaceType.Smooth
-	ground.Parent = parent
-	return ground
+local function buildTerrainBase(random: Random)
+	local terrain = workspace.Terrain
+	terrain:FillBlock(TERRAIN_BLOCK_CFRAME, TERRAIN_BLOCK_SIZE, Enum.Material.Grass)
+
+	local mudCount = random:NextInteger(MUD_PATCH_MIN, MUD_PATCH_MAX)
+	for _ = 1, mudCount do
+		local angle = random:NextNumber() * 2 * math.pi
+		local radius = random:NextNumber(MUD_PATCH_RADIUS_MIN, MUD_PATCH_RADIUS_MAX)
+		local center = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local region = Region3.new(center - MUD_PATCH_HALF, center + MUD_PATCH_HALF)
+		terrain:FillRegion(region:ExpandToGrid(4), 4, Enum.Material.Mud)
+	end
+
+	local leafyCount = random:NextInteger(LEAFY_PATCH_MIN, LEAFY_PATCH_MAX)
+	for _ = 1, leafyCount do
+		local angle = random:NextNumber() * 2 * math.pi
+		local radius = random:NextNumber(LEAFY_PATCH_RADIUS_MIN, LEAFY_PATCH_RADIUS_MAX)
+		local center = Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local region = Region3.new(center - LEAFY_PATCH_HALF, center + LEAFY_PATCH_HALF)
+		terrain:FillRegion(region:ExpandToGrid(4), 4, Enum.Material.LeafyGrass)
+	end
+
+	terrain.Decoration = true
+	terrain.GrassLength = TERRAIN_GRASS_LENGTH
+end
+
+local function jitterColor(base: Color3, random: Random, amount: number): Color3
+	local r = math.clamp(base.R + random:NextNumber(-amount, amount), 0, 1)
+	local g = math.clamp(base.G + random:NextNumber(-amount, amount), 0, 1)
+	local b = math.clamp(base.B + random:NextNumber(-amount, amount), 0, 1)
+	return Color3.new(r, g, b)
+end
+
+local function buildTrunkSegment(
+	parent: Instance,
+	name: string,
+	length: number,
+	diameter: number,
+	centerPos: Vector3,
+	tiltDegrees: number,
+	color: Color3
+)
+	local segment = Instance.new("Part")
+	segment.Name = name
+	segment.Shape = Enum.PartType.Cylinder
+	segment.Size = Vector3.new(length, diameter, diameter)
+	segment.CFrame = CFrame.new(centerPos)
+		* CFrame.Angles(0, 0, math.rad(90) + math.rad(tiltDegrees))
+	segment.Anchored = true
+	segment.Material = Enum.Material.Wood
+	segment.Color = color
+	segment.TopSurface = Enum.SurfaceType.Smooth
+	segment.BottomSurface = Enum.SurfaceType.Smooth
+	segment.Parent = parent
+end
+
+local function buildBarkRidges(
+	parent: Instance,
+	trunkCenter: Vector3,
+	trunkHalfHeight: number,
+	trunkRadius: number,
+	color: Color3,
+	random: Random
+)
+	local ridgeCount = random:NextInteger(2, 3)
+	for i = 1, ridgeCount do
+		local angle = random:NextNumber() * 2 * math.pi
+		local ridgePos = trunkCenter
+			+ Vector3.new(
+				math.cos(angle) * (trunkRadius - 0.1),
+				random:NextNumber(-trunkHalfHeight * 0.5, trunkHalfHeight * 0.5),
+				math.sin(angle) * (trunkRadius - 0.1)
+			)
+		local ridge = Instance.new("Part")
+		ridge.Name = ("BarkRidge%d"):format(i)
+		ridge.Size = Vector3.new(0.5, 3, 0.5)
+		ridge.CFrame = CFrame.new(ridgePos)
+		ridge.Anchored = true
+		ridge.Material = Enum.Material.Wood
+		ridge.Color = color
+		ridge.Parent = parent
+	end
+end
+
+local function buildBranch(
+	parent: Instance,
+	branchOrigin: Vector3,
+	random: Random,
+	color: Color3,
+	index: number
+)
+	local yaw = random:NextNumber() * 2 * math.pi
+	local pitch = math.rad(random:NextNumber(20, 60))
+	local length = 4
+	local direction = Vector3.new(
+		math.cos(yaw) * math.cos(pitch),
+		math.sin(pitch),
+		math.sin(yaw) * math.cos(pitch)
+	)
+
+	local branch = Instance.new("Part")
+	branch.Name = ("Branch%d"):format(index)
+	branch.Shape = Enum.PartType.Cylinder
+	branch.Size = Vector3.new(length, 1.5, 1.5)
+	branch.CFrame = CFrame.lookAt(branchOrigin, branchOrigin + direction)
+		* CFrame.new(0, 0, -length / 2)
+		* CFrame.Angles(0, math.rad(90), 0)
+	branch.Anchored = true
+	branch.Material = Enum.Material.Wood
+	branch.Color = color
+	branch.Parent = parent
+end
+
+local function buildLeafCluster(parent: Instance, trunkX: number, trunkZ: number, random: Random)
+	local sphereCount = random:NextInteger(4, 6)
+	for i = 1, sphereCount do
+		local diameter = random:NextNumber(6, 10)
+		local offsetX = random:NextNumber(-3, 3)
+		local offsetZ = random:NextNumber(-3, 3)
+		local offsetY = random:NextNumber(12, 16)
+		local color = LEAF_BASE_COLORS[((i - 1) % #LEAF_BASE_COLORS) + 1]
+
+		local leafSphere = Instance.new("Part")
+		leafSphere.Name = ("Leaves%d"):format(i)
+		leafSphere.Shape = Enum.PartType.Ball
+		leafSphere.Size = Vector3.new(diameter, diameter, diameter)
+		leafSphere.Position = Vector3.new(trunkX + offsetX, offsetY, trunkZ + offsetZ)
+		leafSphere.Anchored = true
+		leafSphere.Material = Enum.Material.LeafyGrass
+		leafSphere.Color = jitterColor(color, random, 0.05)
+		leafSphere.Parent = parent
+	end
+end
+
+local function buildDeadBranches(
+	parent: Instance,
+	trunkX: number,
+	trunkZ: number,
+	random: Random,
+	color: Color3
+)
+	local branchCount = random:NextInteger(4, 5)
+	for i = 1, branchCount do
+		local yaw = random:NextNumber() * 2 * math.pi
+		local pitch = math.rad(random:NextNumber(30, 80))
+		local length = 3
+		local origin = Vector3.new(trunkX, 13 + random:NextNumber(-1, 2), trunkZ)
+		local direction = Vector3.new(
+			math.cos(yaw) * math.cos(pitch),
+			math.sin(pitch),
+			math.sin(yaw) * math.cos(pitch)
+		)
+
+		local twig = Instance.new("Part")
+		twig.Name = ("DeadTwig%d"):format(i)
+		twig.Size = Vector3.new(0.5, length, 0.5)
+		twig.CFrame = CFrame.lookAt(origin, origin + direction) * CFrame.new(0, 0, -length / 2)
+		twig.Anchored = true
+		twig.Material = Enum.Material.Wood
+		twig.Color = color
+		twig.Parent = parent
+	end
+end
+
+local function attachTrunkMist(parent: Part)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "TrunkMist"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(220, 215, 230))
+	emitter.Lifetime = NumberRange.new(2, 4)
+	emitter.Rate = 2
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(1, 3),
+	})
+	emitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(0.3, 0.85),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	emitter.Speed = NumberRange.new(0.3)
+	emitter.SpreadAngle = Vector2.new(120, 120)
+	emitter.Parent = parent
+end
+
+local function generateTree(position: Vector3, isDead: boolean, parent: Instance, random: Random)
+	local model = Instance.new("Model")
+	model.Name = if isDead then "DeadTree" else "Tree"
+
+	local trunkColor = if isDead then TRUNK_DEAD_COLOR else TRUNK_BASE_COLOR
+	local bottomColor = jitterColor(trunkColor, random, 0.04)
+	local middleColor = jitterColor(trunkColor, random, 0.04)
+	local topColor = jitterColor(trunkColor, random, 0.04)
+
+	local bottomCenter = position + Vector3.new(0, 3, 0)
+	local middleCenter = position + Vector3.new(0, 8.5, 0)
+	local topCenter = position + Vector3.new(0, 13, 0)
+
+	buildTrunkSegment(model, "TrunkBottom", 6, 4, bottomCenter, 0, bottomColor)
+	buildTrunkSegment(
+		model,
+		"TrunkMiddle",
+		5,
+		3.5,
+		middleCenter,
+		random:NextNumber(-8, 8),
+		middleColor
+	)
+	buildTrunkSegment(model, "TrunkTop", 4, 3, topCenter, random:NextNumber(-10, 10), topColor)
+	buildBarkRidges(model, bottomCenter, 3, 2, jitterColor(trunkColor, random, 0.06), random)
+
+	local trunkRoot = model:FindFirstChild("TrunkBottom") :: Part?
+	if trunkRoot then
+		attachTrunkMist(trunkRoot)
+	end
+
+	if isDead then
+		buildDeadBranches(model, position.X, position.Z, random, topColor)
+	else
+		local branchCount = random:NextInteger(2, 3)
+		for i = 1, branchCount do
+			local branchOrigin = position + Vector3.new(0, random:NextNumber(9, 13), 0)
+			buildBranch(model, branchOrigin, random, middleColor, i)
+		end
+		buildLeafCluster(model, position.X, position.Z, random)
+	end
+
+	model.Parent = parent
 end
 
 local function pickOuterRingPosition(random: Random): Vector3
@@ -91,68 +318,25 @@ local function pickOuterRingPosition(random: Random): Vector3
 	return Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
 end
 
-local function pickGrassPosition(random: Random): Vector3
-	local angle = random:NextNumber() * 2 * math.pi
-	local radius = INNER_RING_RADIUS + random:NextNumber() * (OUTER_RING_OUTER - INNER_RING_RADIUS)
-	return Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
-end
-
-local function buildTree(basePos: Vector3, parent: Instance)
-	local trunk = Instance.new("Part")
-	trunk.Name = "Trunk"
-	trunk.Shape = Enum.PartType.Cylinder
-	trunk.Size = Vector3.new(TRUNK_HEIGHT, TRUNK_DIAMETER, TRUNK_DIAMETER)
-	trunk.CFrame = CFrame.new(basePos.X, TRUNK_HEIGHT / 2, basePos.Z)
-		* CFrame.Angles(0, 0, math.rad(90))
-	trunk.Anchored = true
-	trunk.Material = Enum.Material.WoodPlanks
-	trunk.Color = TRUNK_COLOR
-	trunk.Parent = parent
-
-	local leaves = Instance.new("Part")
-	leaves.Name = "Leaves"
-	leaves.Shape = Enum.PartType.Ball
-	leaves.Size = Vector3.new(LEAVES_DIAMETER, LEAVES_DIAMETER, LEAVES_DIAMETER)
-	leaves.Position = Vector3.new(basePos.X, TRUNK_HEIGHT + LEAVES_DIAMETER / 2, basePos.Z)
-	leaves.Anchored = true
-	leaves.Material = Enum.Material.LeafyGrass
-	leaves.Color = LEAVES_COLOR
-	leaves.Parent = parent
-end
-
-local function buildGrassPatch(basePos: Vector3, parent: Instance)
-	local grass = Instance.new("Part")
-	grass.Name = "TallGrass"
-	grass.Size = GRASS_SIZE
-	grass.Position = Vector3.new(basePos.X, GRASS_SIZE.Y / 2, basePos.Z)
-	grass.Anchored = true
-	grass.CanCollide = false
-	grass.Material = Enum.Material.Grass
-	grass.Color = GRASS_COLOR
-	grass.Parent = parent
-end
-
 local function buildGravestone(basePos: Vector3, random: Random, parent: Instance)
 	local stone = Instance.new("Part")
 	stone.Name = "Gravestone"
 	stone.Size = GRAVESTONE_SIZE
 	local yawDegrees = random:NextNumber(-20, 20)
+	local rollDegrees = random:NextNumber(-5, 5)
 	stone.CFrame = CFrame.new(basePos.X, GRAVESTONE_SIZE.Y / 2, basePos.Z)
-		* CFrame.Angles(0, math.rad(yawDegrees), math.rad(random:NextNumber(-5, 5)))
+		* CFrame.Angles(0, math.rad(yawDegrees), math.rad(rollDegrees))
 	stone.Anchored = true
 	stone.Material = Enum.Material.Slate
 	stone.Color = GRAVESTONE_COLOR
 	stone.Parent = parent
 end
 
-local function scatterScene(parent: Instance)
-	local random = Random.new(SCATTER_SEED)
-
+local function scatterScene(parent: Instance, random: Random)
 	for _ = 1, TREE_COUNT do
-		buildTree(pickOuterRingPosition(random), parent)
-	end
-	for _ = 1, GRASS_COUNT do
-		buildGrassPatch(pickGrassPosition(random), parent)
+		local pos = pickOuterRingPosition(random)
+		local isDead = random:NextNumber() < DEAD_TREE_CHANCE
+		generateTree(pos, isDead, parent, random)
 	end
 	for _ = 1, GRAVESTONE_COUNT do
 		buildGravestone(pickOuterRingPosition(random), random, parent)
@@ -197,12 +381,14 @@ end
 function HubBuilder.build(): Model
 	clearDefaultWorld()
 
+	local random = Random.new(SCATTER_SEED)
+	buildTerrainBase(random)
+
 	local hub = Instance.new("Model")
 	hub.Name = "PasarGaibHub"
 	hub.Parent = workspace
 
-	createGround(hub)
-	scatterScene(hub)
+	scatterScene(hub, random)
 	createSpawn(hub)
 	createPetromaks(hub)
 

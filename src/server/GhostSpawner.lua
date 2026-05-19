@@ -1,17 +1,19 @@
 --!strict
 --[[
 	@module      GhostSpawner
-	@description Spawn 1 hantu companion di belakang tiap NPC vendor (6 studs
-	             behind, calculated from NPC lookDirection). Pairing kultural:
-	               Mbok Inem    -> Pocong     (classic Indo, kain putih kotor)
-	               Pak Tukijo   -> Genderuwo  (forest dweller, mata merah glow)
-	               Nyai Sumi    -> Kuntilanak (female ghost, rambut panjang)
-	               Bandar Robux -> Leak       (Balinese, kepala lepas floating)
-	             Tiap hantu placeholder BasePart primitive (Block/Ball/Cylinder)
-	             dengan BillboardGui nama merah di atas head. Kuntilanak hover
-	             vertikal via TweenService, Leak head orbit horizontal via
-	             RunService Heartbeat. Detail polish & custom mesh nyusul Phase
-	             art pass.
+	@description Rewrite besar: 4 hantu companion FLYING (gak napak terrain),
+	             multi-part rig (bukan kotak satu), per-ghost ParticleEmitter
+	             aura + PointLight + Trail attachment + complex animation
+	             (Pocong hop tween, Genderuwo breathing+arm sway, Kuntilanak
+	             hair sway per-hair phase, Leak figure-8 head orbit + arm
+	             oscillate). Pairing kultural unchanged:
+	               Mbok Inem    -> Pocong
+	               Pak Tukijo   -> Genderuwo
+	               Nyai Sumi    -> Kuntilanak
+	               Bandar Robux -> Leak
+	             Posisi: 6 studs di belakang NPC (calculated from lookDirection),
+	             ground level X/Z, hover Y per-ghost. Detail polish & mesh import
+	             di Phase art pass.
 	@author      Claude Agent (primary coder)
 ]]
 
@@ -39,6 +41,39 @@ local NPC_TO_GHOST: { [string]: GhostType } = {
 	["Bandar Robux"] = "Leak",
 }
 
+local function makePart(props: {
+	name: string,
+	size: Vector3,
+	cframe: CFrame?,
+	position: Vector3?,
+	material: Enum.Material,
+	color: Color3,
+	transparency: number?,
+	shape: Enum.PartType?,
+	parent: Instance,
+}): Part
+	local part = Instance.new("Part")
+	part.Name = props.name
+	if props.shape then
+		part.Shape = props.shape
+	end
+	part.Size = props.size
+	if props.cframe then
+		part.CFrame = props.cframe
+	elseif props.position then
+		part.Position = props.position
+	end
+	part.Material = props.material
+	part.Color = props.color
+	part.Transparency = props.transparency or 0
+	part.Anchored = true
+	part.CanCollide = false
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	part.Parent = props.parent
+	return part
+end
+
 local function attachNameTag(anchor: BasePart, ghostName: string, offsetY: number)
 	local billboard = Instance.new("BillboardGui")
 	billboard.Name = "GhostNameTag"
@@ -59,34 +94,122 @@ local function attachNameTag(anchor: BasePart, ghostName: string, offsetY: numbe
 	label.Parent = billboard
 end
 
+local function attachTrail(host: BasePart, color: Color3, lifetime: number)
+	local top = Instance.new("Attachment")
+	top.Name = "TrailTop"
+	top.Position = Vector3.new(0, host.Size.Y / 2, 0)
+	top.Parent = host
+
+	local bottom = Instance.new("Attachment")
+	bottom.Name = "TrailBottom"
+	bottom.Position = Vector3.new(0, -host.Size.Y / 2, 0)
+	bottom.Parent = host
+
+	local trail = Instance.new("Trail")
+	trail.Name = "GhostTrail"
+	trail.Attachment0 = top
+	trail.Attachment1 = bottom
+	trail.Lifetime = lifetime
+	trail.Color = ColorSequence.new(color)
+	trail.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.5),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	trail.LightEmission = 0.3
+	trail.FaceCamera = true
+	trail.Parent = host
+end
+
+local function attachAura(
+	host: BasePart,
+	config: {
+		color: Color3,
+		lifetimeMin: number,
+		lifetimeMax: number,
+		rate: number,
+		sizeMin: number,
+		sizeMax: number,
+		transparency: number,
+		speed: number,
+		lightEmission: number?,
+	}
+)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "Aura"
+	emitter.Color = ColorSequence.new(config.color)
+	emitter.Lifetime = NumberRange.new(config.lifetimeMin, config.lifetimeMax)
+	emitter.Rate = config.rate
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, config.sizeMin),
+		NumberSequenceKeypoint.new(1, config.sizeMax),
+	})
+	emitter.Transparency = NumberSequence.new(config.transparency)
+	emitter.Speed = NumberRange.new(config.speed)
+	emitter.SpreadAngle = Vector2.new(180, 180)
+	emitter.LightEmission = config.lightEmission or 0
+	emitter.Parent = host
+end
+
+local function attachLight(host: BasePart, color: Color3, brightness: number, range: number)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Brightness = brightness
+	light.Range = range
+	light.Parent = host
+end
+
+local function applyBob(part: BasePart, amplitude: number, period: number, easing: Enum.EasingStyle)
+	local info = TweenInfo.new(period, easing, Enum.EasingDirection.InOut, -1, true)
+	local tween = TweenService:Create(part, info, {
+		Position = part.Position + Vector3.new(0, amplitude, 0),
+	})
+	tween:Play()
+end
+
 local function buildPocong(base: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "Pocong"
 
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(3, 7, 3)
-	body.Position = base + Vector3.new(0, 3.5, 0)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Material = Enum.Material.Fabric
-	body.Color = Color3.fromRGB(220, 215, 200)
-	body.Transparency = 0.3
-	body.TopSurface = Enum.SurfaceType.Smooth
-	body.BottomSurface = Enum.SurfaceType.Smooth
-	body.Parent = model
+	local hoverY = 8
+	local bodyCenter = base + Vector3.new(0, hoverY, 0)
 
-	local head = Instance.new("Part")
-	head.Name = "Head"
-	head.Shape = Enum.PartType.Ball
-	head.Size = Vector3.new(2, 2, 2)
-	head.Position = base + Vector3.new(0, 8, 0)
-	head.Anchored = true
-	head.CanCollide = false
-	head.Material = Enum.Material.Fabric
-	head.Color = Color3.fromRGB(220, 215, 200)
-	head.Transparency = 0.3
-	head.Parent = model
+	local body = makePart({
+		name = "Body",
+		size = Vector3.new(3, 7, 3),
+		position = bodyCenter,
+		material = Enum.Material.Fabric,
+		color = Color3.fromRGB(220, 215, 200),
+		transparency = 0.3,
+		parent = model,
+	})
+
+	local head = makePart({
+		name = "Head",
+		size = Vector3.new(1.8, 1.8, 1.8),
+		position = bodyCenter + Vector3.new(0, 4, 0),
+		shape = Enum.PartType.Ball,
+		material = Enum.Material.Fabric,
+		color = Color3.fromRGB(220, 215, 200),
+		transparency = 0.3,
+		parent = model,
+	})
+
+	attachAura(body, {
+		color = Color3.fromRGB(255, 255, 255),
+		lifetimeMin = 2,
+		lifetimeMax = 2,
+		rate = 5,
+		sizeMin = 1,
+		sizeMax = 2,
+		transparency = 0.7,
+		speed = 1,
+	})
+	attachLight(body, Color3.fromRGB(255, 255, 255), 3, 8)
+	attachTrail(body, Color3.fromRGB(255, 255, 255), 1)
+
+	local hopInfo = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true)
+	TweenService:Create(body, hopInfo, { Position = bodyCenter + Vector3.new(0, 5, 0) }):Play()
+	TweenService:Create(head, hopInfo, { Position = bodyCenter + Vector3.new(0, 9, 0) }):Play()
 
 	model.PrimaryPart = head
 	attachNameTag(head, "Pocong", 2)
@@ -97,44 +220,95 @@ local function buildGenderuwo(base: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "Genderuwo"
 
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(4, 9, 3)
-	body.Position = base + Vector3.new(0, 4.5, 0)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Material = Enum.Material.Slate
-	body.Color = Color3.fromRGB(60, 40, 30)
-	body.Transparency = 0.2
-	body.TopSurface = Enum.SurfaceType.Smooth
-	body.BottomSurface = Enum.SurfaceType.Smooth
-	body.Parent = model
+	local hoverY = 4
+	local torsoCenter = base + Vector3.new(0, hoverY, 0)
 
-	local eyeOffsets: { Vector3 } = {
-		Vector3.new(-0.7, 3.5, 1.6),
-		Vector3.new(0.7, 3.5, 1.6),
-	}
-	for i, off in ipairs(eyeOffsets) do
-		local eye = Instance.new("Part")
-		eye.Name = ("Eye%d"):format(i)
-		eye.Shape = Enum.PartType.Ball
-		eye.Size = Vector3.new(0.3, 0.3, 0.3)
-		eye.Position = base + off
-		eye.Anchored = true
-		eye.CanCollide = false
-		eye.Material = Enum.Material.Neon
-		eye.Color = Color3.fromRGB(255, 0, 0)
-		eye.Parent = model
+	local torso = makePart({
+		name = "Torso",
+		size = Vector3.new(5, 8, 4),
+		position = torsoCenter,
+		material = Enum.Material.Slate,
+		color = Color3.fromRGB(50, 35, 25),
+		transparency = 0.15,
+		parent = model,
+	})
 
-		local light = Instance.new("PointLight")
-		light.Color = Color3.fromRGB(255, 0, 0)
-		light.Brightness = 2
-		light.Range = 5
-		light.Parent = eye
+	local head = makePart({
+		name = "Head",
+		size = Vector3.new(3, 3, 3),
+		position = torsoCenter + Vector3.new(0, 5, 0),
+		shape = Enum.PartType.Ball,
+		material = Enum.Material.Slate,
+		color = Color3.fromRGB(40, 30, 20),
+		transparency = 0.15,
+		parent = model,
+	})
+
+	for i, sideX in ipairs({ -3.5, 3.5 }) do
+		local arm = makePart({
+			name = ("Arm%d"):format(i),
+			size = Vector3.new(1.5, 7, 1.5),
+			position = torsoCenter + Vector3.new(sideX, -1, 0),
+			material = Enum.Material.Slate,
+			color = Color3.fromRGB(45, 30, 22),
+			transparency = 0.15,
+			parent = model,
+		})
+		attachTrail(arm, Color3.fromRGB(180, 30, 10), 0.8)
+
+		local armBobInfo =
+			TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+		TweenService:Create(arm, armBobInfo, { Position = arm.Position + Vector3.new(0, 0.3, 0) })
+			:Play()
 	end
 
-	model.PrimaryPart = body
-	attachNameTag(body, "Genderuwo", 6)
+	for i, sideX in ipairs({ -0.7, 0.7 }) do
+		local eye = makePart({
+			name = ("Eye%d"):format(i),
+			size = Vector3.new(0.6, 0.6, 0.4),
+			position = head.Position + Vector3.new(sideX, 0.2, -1.4),
+			material = Enum.Material.Neon,
+			color = Color3.fromRGB(255, 30, 0),
+			parent = model,
+		})
+		attachLight(eye, Color3.fromRGB(255, 30, 0), 3, 6)
+	end
+
+	for i, sideX in ipairs({ -1, 1 }) do
+		local horn = makePart({
+			name = ("Horn%d"):format(i),
+			size = Vector3.new(0.4, 2, 0.4),
+			cframe = CFrame.new(head.Position + Vector3.new(sideX, 1.5, 0))
+				* CFrame.Angles(0, 0, math.rad(-15 * sideX)),
+			shape = Enum.PartType.Cylinder,
+			material = Enum.Material.Slate,
+			color = Color3.fromRGB(30, 22, 18),
+			parent = model,
+		})
+		horn.CFrame = horn.CFrame * CFrame.Angles(0, 0, math.rad(90))
+	end
+
+	attachAura(torso, {
+		color = Color3.fromRGB(200, 40, 0),
+		lifetimeMin = 1,
+		lifetimeMax = 1.5,
+		rate = 8,
+		sizeMin = 0.5,
+		sizeMax = 1,
+		transparency = 0.4,
+		speed = 1.5,
+		lightEmission = 0.8,
+	})
+	attachLight(torso, Color3.fromRGB(255, 50, 0), 6, 10)
+
+	local breathInfo =
+		TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+	TweenService:Create(torso, breathInfo, {
+		Size = Vector3.new(torso.Size.X, torso.Size.Y * 1.05, torso.Size.Z),
+	}):Play()
+
+	model.PrimaryPart = torso
+	attachNameTag(head, "Genderuwo", 3)
 	return model
 end
 
@@ -142,38 +316,87 @@ local function buildKuntilanak(base: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "Kuntilanak"
 
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(2.5, 8, 2.5)
-	body.Position = base + Vector3.new(0, 4, 0)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Material = Enum.Material.Fabric
-	body.Color = Color3.fromRGB(240, 240, 230)
-	body.Transparency = 0.5
-	body.TopSurface = Enum.SurfaceType.Smooth
-	body.BottomSurface = Enum.SurfaceType.Smooth
-	body.Parent = model
+	local hoverY = 5
+	local bodyCenter = base + Vector3.new(0, hoverY, 0)
 
-	local hair = Instance.new("Part")
-	hair.Name = "Hair"
-	hair.Shape = Enum.PartType.Cylinder
-	hair.Size = Vector3.new(6, 0.5, 0.5)
-	hair.CFrame = CFrame.new(base + Vector3.new(0, 5, -1.4)) * CFrame.Angles(0, 0, math.rad(90))
-	hair.Anchored = true
-	hair.CanCollide = false
-	hair.Material = Enum.Material.Fabric
-	hair.Color = Color3.fromRGB(15, 10, 10)
-	hair.Parent = model
-
-	local hoverInfo = TweenInfo.new(1, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-	local hoverTween = TweenService:Create(body, hoverInfo, {
-		Position = body.Position + Vector3.new(0, 0.5, 0),
+	local body = makePart({
+		name = "BodyUpper",
+		size = Vector3.new(2, 6, 2),
+		position = bodyCenter,
+		material = Enum.Material.Fabric,
+		color = Color3.fromRGB(245, 240, 235),
+		transparency = 0.4,
+		parent = model,
 	})
-	hoverTween:Play()
 
-	model.PrimaryPart = body
-	attachNameTag(body, "Kuntilanak", 5)
+	local head = makePart({
+		name = "Head",
+		size = Vector3.new(1.8, 1.8, 1.8),
+		position = bodyCenter + Vector3.new(0, 4, 0),
+		shape = Enum.PartType.Ball,
+		material = Enum.Material.Fabric,
+		color = Color3.fromRGB(245, 240, 235),
+		transparency = 0.4,
+		parent = model,
+	})
+
+	local gown = makePart({
+		name = "GownFlare",
+		size = Vector3.new(4, 5, 4),
+		position = bodyCenter + Vector3.new(0, -5.5, 0),
+		material = Enum.Material.Fabric,
+		color = Color3.fromRGB(240, 230, 220),
+		transparency = 0.5,
+		parent = model,
+	})
+
+	local hairCount = 6
+	for i = 1, hairCount do
+		local angle = (i / hairCount) * math.pi - math.pi / 2
+		local localX = math.sin(angle) * 0.7
+		local localZ = -0.8 + math.cos(angle) * 0.3
+		local hair = makePart({
+			name = ("Hair%d"):format(i),
+			size = Vector3.new(0.3, 7, 0.3),
+			position = bodyCenter + Vector3.new(localX, 0.5, localZ),
+			material = Enum.Material.Fabric,
+			color = Color3.fromRGB(15, 10, 15),
+			parent = model,
+		})
+
+		local swayInfo = TweenInfo.new(
+			2 + (i % 3) * 0.3,
+			Enum.EasingStyle.Sine,
+			Enum.EasingDirection.InOut,
+			-1,
+			true,
+			(i / hairCount) * 0.5
+		)
+		TweenService:Create(hair, swayInfo, {
+			Orientation = Vector3.new(0, 0, 5),
+		}):Play()
+	end
+
+	attachAura(body, {
+		color = Color3.fromRGB(255, 200, 210),
+		lifetimeMin = 3,
+		lifetimeMax = 3,
+		rate = 4,
+		sizeMin = 0.5,
+		sizeMax = 1.5,
+		transparency = 0.7,
+		speed = 0.5,
+		lightEmission = 0.5,
+	})
+	attachLight(body, Color3.fromRGB(255, 220, 230), 4, 8)
+	attachTrail(gown, Color3.fromRGB(255, 230, 240), 1.5)
+
+	applyBob(body, 1, 2.5, Enum.EasingStyle.Sine)
+	applyBob(head, 1, 2.5, Enum.EasingStyle.Sine)
+	applyBob(gown, 1, 2.5, Enum.EasingStyle.Sine)
+
+	model.PrimaryPart = head
+	attachNameTag(head, "Kuntilanak", 2)
 	return model
 end
 
@@ -181,45 +404,100 @@ local function buildLeak(base: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "Leak"
 
-	local body = Instance.new("Part")
-	body.Name = "Body"
-	body.Size = Vector3.new(3, 4, 3)
-	body.Position = base + Vector3.new(0, 2, 0)
-	body.Anchored = true
-	body.CanCollide = false
-	body.Material = Enum.Material.Glass
-	body.Color = Color3.fromRGB(180, 50, 50)
-	body.Transparency = 0.4
-	body.TopSurface = Enum.SurfaceType.Smooth
-	body.BottomSurface = Enum.SurfaceType.Smooth
-	body.Parent = model
+	local hoverY = 5
+	local torsoCenter = base + Vector3.new(0, hoverY, 0)
 
-	local head = Instance.new("Part")
-	head.Name = "Head"
-	head.Shape = Enum.PartType.Ball
-	head.Size = Vector3.new(2, 2, 2)
-	head.Anchored = true
-	head.CanCollide = false
-	head.Material = Enum.Material.Glass
-	head.Color = Color3.fromRGB(180, 50, 50)
-	head.Transparency = 0.4
-	head.Parent = model
+	local torso = makePart({
+		name = "TorsoLower",
+		size = Vector3.new(3, 4, 3),
+		position = torsoCenter,
+		material = Enum.Material.Glass,
+		color = Color3.fromRGB(140, 30, 30),
+		transparency = 0.35,
+		parent = model,
+	})
 
-	local centerPos = base + Vector3.new(0, 8, 0)
-	head.Position = centerPos
+	local headBase = torsoCenter + Vector3.new(0, 4, 0)
+	local head = makePart({
+		name = "Head",
+		size = Vector3.new(2.5, 2.5, 2.5),
+		position = headBase,
+		shape = Enum.PartType.Ball,
+		material = Enum.Material.Glass,
+		color = Color3.fromRGB(140, 30, 30),
+		transparency = 0.35,
+		parent = model,
+	})
 
-	local orbitRadius = 1.5
-	local orbitSpeed = 1.0
+	local arms: { Part } = {}
+	for i, sideX in ipairs({ -2.5, 2.5 }) do
+		local arm = makePart({
+			name = ("Arm%d"):format(i),
+			size = Vector3.new(1, 3, 1),
+			position = torsoCenter + Vector3.new(sideX, 0.5, 0),
+			material = Enum.Material.Glass,
+			color = Color3.fromRGB(140, 30, 30),
+			transparency = 0.35,
+			parent = model,
+		})
+		table.insert(arms, arm)
+	end
+
+	for i = 1, 4 do
+		local angle = (i / 4) * 2 * math.pi
+		local organ = makePart({
+			name = ("Organ%d"):format(i),
+			size = Vector3.new(0.4, 3, 0.4),
+			position = headBase + Vector3.new(math.cos(angle) * 0.6, -2, math.sin(angle) * 0.6),
+			material = Enum.Material.Neon,
+			color = Color3.fromRGB(180, 20, 20),
+			transparency = 0.5,
+			parent = model,
+		})
+		attachLight(organ, Color3.fromRGB(255, 30, 30), 1, 3)
+	end
+
+	makePart({
+		name = "Tongue",
+		size = Vector3.new(0.5, 0.5, 2),
+		position = headBase + Vector3.new(0, -0.4, -1.5),
+		material = Enum.Material.Neon,
+		color = Color3.fromRGB(200, 50, 50),
+		parent = model,
+	})
+
+	attachAura(torso, {
+		color = Color3.fromRGB(180, 20, 20),
+		lifetimeMin = 2,
+		lifetimeMax = 2,
+		rate = 12,
+		sizeMin = 0.3,
+		sizeMax = 1,
+		transparency = 0.5,
+		speed = 2,
+		lightEmission = 1,
+	})
+	attachLight(torso, Color3.fromRGB(255, 20, 20), 8, 14)
+	attachTrail(head, Color3.fromRGB(255, 30, 30), 1.2)
+
+	local orbitConnection: RBXScriptConnection
 	local t = 0
-	local heartbeat: RBXScriptConnection
-	heartbeat = RunService.Heartbeat:Connect(function(dt: number)
+	local armT = 0
+	orbitConnection = RunService.Heartbeat:Connect(function(dt: number)
 		if not head.Parent then
-			heartbeat:Disconnect()
+			orbitConnection:Disconnect()
 			return
 		end
-		t += dt * orbitSpeed
-		head.Position = centerPos
-			+ Vector3.new(math.cos(t) * orbitRadius, 0, math.sin(t) * orbitRadius)
+		t += dt * 0.8
+		armT += dt
+		head.Position = headBase
+			+ Vector3.new(math.sin(t) * 2, math.sin(t * 2) * 0.5, math.cos(t) * 1.5)
+
+		for i, arm in ipairs(arms) do
+			local phase = (i - 1) * math.pi
+			local sideX = (i == 1) and -2.5 or 2.5
+			arm.Position = torsoCenter + Vector3.new(sideX + math.sin(armT + phase) * 0.3, 0.5, 0)
+		end
 	end)
 
 	model.PrimaryPart = head

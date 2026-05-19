@@ -1,18 +1,22 @@
 --!strict
 --[[
 	@module      NPCSpawner
-	@description Spawn 4 NPC vendor Pasar Gaib di 4 quadrant Middle Ring (jarak
-	             ~56 studs dari center, asymmetric). Tiap NPC dapat:
-	             (1) R6 rig placeholder (HRP + Head + Torso + 4 limb + Humanoid
-	             w/ WalkSpeed=0), (2) kios 8x8 dgn 4 pilar kayu + atap rumbia
-	             + counter table di depan (counter menghadap center), (3)
-	             ProximityPrompt "Ngobrol" key E range 8 yang fire Chat:Chat()
-	             bubble. NPC menghadap center hub. Export getVendorList() supaya
-	             GhostSpawner bisa nempelin hantu di belakang tiap NPC.
+	@description Spawn 4 NPC vendor Pasar Gaib di 4 quadrant Middle Ring (~56
+	             studs dari center, asymmetric). Tiap NPC dapat: R6 rig
+	             placeholder (HRP + Head + Torso + 4 limb + Humanoid WalkSpeed=0)
+	             menghadap center, ProximityPrompt "Ngobrol" key E range 8 yang
+	             fire Chat:Chat() bubble. Kiosk decoration sekarang di-delegate
+	             ke KioskBuilder.build() (lampion, atap layered, sesajen pile,
+	             papan nama, floor). Export getVendorList() supaya GhostSpawner
+	             bisa nempelin hantu di belakang tiap NPC.
 	@author      Claude Agent (primary coder)
 ]]
 
 local Chat = game:GetService("Chat")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local KioskBuilder =
+	require(ServerScriptService:WaitForChild("Server"):WaitForChild("KioskBuilder"))
 
 local NPCSpawner = {}
 
@@ -37,21 +41,6 @@ local PROMPT_ACTION_TEXT = "Ngobrol"
 local SKIN_COLOR = Color3.fromRGB(235, 178, 122)
 local LIMB_DARK = Color3.fromRGB(40, 30, 25)
 local ROOT_INVISIBLE = Color3.fromRGB(0, 0, 0)
-
-local KIOSK_POLE_SIZE = Vector3.new(1, 8, 1)
-local KIOSK_POLE_OFFSETS: { Vector3 } = {
-	Vector3.new(4, 4, 4),
-	Vector3.new(-4, 4, 4),
-	Vector3.new(4, 4, -4),
-	Vector3.new(-4, 4, -4),
-}
-local KIOSK_POLE_COLOR = Color3.fromRGB(80, 50, 25)
-local KIOSK_ROOF_SIZE = Vector3.new(10, 1, 10)
-local KIOSK_ROOF_OFFSET = Vector3.new(0, 8.5, 0)
-local KIOSK_ROOF_COLOR = Color3.fromRGB(120, 95, 50)
-local KIOSK_COUNTER_SIZE = Vector3.new(6, 3, 2)
-local KIOSK_COUNTER_OFFSET = Vector3.new(0, 1.5, -3)
-local KIOSK_COUNTER_COLOR = Color3.fromRGB(60, 35, 18)
 
 local VENDORS: { VendorSpec } = {
 	{
@@ -141,51 +130,6 @@ local function buildRig(spec: VendorSpec): Model
 	return model
 end
 
-local function buildKiosk(npcPosition: Vector3, lookDirection: Vector3, parent: Instance): Model
-	local kiosk = Instance.new("Model")
-	kiosk.Name = "Kiosk"
-
-	local kioskCFrame = CFrame.lookAt(npcPosition, npcPosition + lookDirection)
-
-	for i, localOffset in ipairs(KIOSK_POLE_OFFSETS) do
-		local pole = Instance.new("Part")
-		pole.Name = ("Pole%d"):format(i)
-		pole.Size = KIOSK_POLE_SIZE
-		pole.CFrame = kioskCFrame * CFrame.new(localOffset)
-		pole.Anchored = true
-		pole.Material = Enum.Material.WoodPlanks
-		pole.Color = KIOSK_POLE_COLOR
-		pole.TopSurface = Enum.SurfaceType.Smooth
-		pole.BottomSurface = Enum.SurfaceType.Smooth
-		pole.Parent = kiosk
-	end
-
-	local roof = Instance.new("Part")
-	roof.Name = "Roof"
-	roof.Size = KIOSK_ROOF_SIZE
-	roof.CFrame = kioskCFrame * CFrame.new(KIOSK_ROOF_OFFSET)
-	roof.Anchored = true
-	roof.Material = Enum.Material.Fabric
-	roof.Color = KIOSK_ROOF_COLOR
-	roof.TopSurface = Enum.SurfaceType.Smooth
-	roof.BottomSurface = Enum.SurfaceType.Smooth
-	roof.Parent = kiosk
-
-	local counter = Instance.new("Part")
-	counter.Name = "Counter"
-	counter.Size = KIOSK_COUNTER_SIZE
-	counter.CFrame = kioskCFrame * CFrame.new(KIOSK_COUNTER_OFFSET)
-	counter.Anchored = true
-	counter.Material = Enum.Material.Wood
-	counter.Color = KIOSK_COUNTER_COLOR
-	counter.TopSurface = Enum.SurfaceType.Smooth
-	counter.BottomSurface = Enum.SurfaceType.Smooth
-	counter.Parent = kiosk
-
-	kiosk.Parent = parent
-	return kiosk
-end
-
 local function attachPrompt(model: Model, spec: VendorSpec)
 	local root = model.PrimaryPart
 	if not root then
@@ -226,7 +170,7 @@ function NPCSpawner.spawnAll(): { Model }
 		attachPrompt(rig, spec)
 		rig.Parent = workspace
 
-		buildKiosk(placePosition, lookDirection, workspace)
+		KioskBuilder.build(placePosition, lookDirection, spec.name, workspace)
 
 		table.insert(spawned, rig)
 		table.insert(vendorInfos, {
