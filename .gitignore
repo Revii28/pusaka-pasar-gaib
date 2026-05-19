@@ -1,0 +1,20 @@
+# Aftman tool cache (binaries are restored via `aftman install`)
+.aftman/
+
+# Local IDE settings (per-user; don't pollute repo)
+.vscode/
+
+# Rojo place file lock (transient, regenerated per session)
+*.rbxl.lock
+
+# Local aftman binary copy (use globally installed aftman or `aftman install`)
+aftman.exe
+
+# Temporary GDD dump from Notion fetch (regenerable via MCP)
+.gdd-tmp.md
+
+# OS clutter
+.DS_Store
+Thumbs.db
+
+# NOTE: *.rbxl is intentionally NOT ignored — the place file is tracked.
