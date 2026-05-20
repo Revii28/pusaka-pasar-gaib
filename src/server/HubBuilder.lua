@@ -16,6 +16,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+local HubDecoration = require(script.Parent:WaitForChild("hub"):WaitForChild("HubDecoration"))
 
 local HubBuilder = {}
 
@@ -504,6 +505,10 @@ function HubBuilder.build(): Model
 			then "night/8"
 			else "day/2"
 		print(("[HubBuilder] Petromaks lit (%s)."):format(brightnessLabel))
+	end)
+
+	safeStep("HubDecoration.build", function()
+		HubDecoration.build(hub)
 	end)
 
 	print(("[HubBuilder] Hub model assembled with %d descendants."):format(#hub:GetDescendants()))
