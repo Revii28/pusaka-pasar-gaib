@@ -6,6 +6,12 @@
 	             welded via WeldConstraint). Bukan reuse GhostSpawner (yang
 	             anchored cosmetic). Tiap enemy module call helper relevant atau
 	             build dari scratch dengan helper di sini.
+
+	             Per-enemy asset notes:
+	             - Pocong: Blender-generated MeshPart, location
+	               ReplicatedStorage.EnemyMeshes.PocongMesh (manual import via
+	               Studio UI). Fallback: primitive parts (legacy buildPocongRig
+	               logic preserved di enemies/Pocong.lua buildPrimitiveRig()).
 	@author      Claude Agent (primary coder)
 ]]
 
