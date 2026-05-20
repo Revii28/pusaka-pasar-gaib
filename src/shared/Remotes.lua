@@ -46,4 +46,34 @@ function Remotes.get(name: string): RemoteEvent
 	return folder:WaitForChild(name) :: RemoteEvent
 end
 
+-- BindableEvent registry (server-only, server↔server internal events).
+-- Used buat EnemyKilled trigger ke LootService tanpa pakai RemoteEvent
+-- (which would round-trip via client). Stored di ServerScriptService folder.
+local function getOrCreateBindableFolder(): Folder
+	local sss = game:GetService("ServerScriptService")
+	local existing = sss:FindFirstChild("InternalEvents")
+	if existing and existing:IsA("Folder") then
+		return existing
+	end
+	if RunService:IsServer() then
+		local folder = Instance.new("Folder")
+		folder.Name = "InternalEvents"
+		folder.Parent = sss
+		return folder
+	end
+	error("[Remotes] getBindable called from client — server-only API")
+end
+
+function Remotes.getBindable(name: string): BindableEvent
+	local folder = getOrCreateBindableFolder()
+	local existing = folder:FindFirstChild(name)
+	if existing and existing:IsA("BindableEvent") then
+		return existing
+	end
+	local evt = Instance.new("BindableEvent")
+	evt.Name = name
+	evt.Parent = folder
+	return evt
+end
+
 return Remotes

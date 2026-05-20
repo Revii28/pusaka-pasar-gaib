@@ -75,6 +75,7 @@ function CombatService.handleM1(player: Player)
 		return
 	end
 
+	enemyModel:SetAttribute("LastAttackerUserId", player.UserId)
 	enemyHum:TakeDamage(Constants.COMBAT.m1Damage)
 	local enemyType = (enemyModel:GetAttribute("EnemyType") or "Unknown") :: string
 	print(

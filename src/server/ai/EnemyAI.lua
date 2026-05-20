@@ -17,6 +17,8 @@ local TweenService = game:GetService("TweenService")
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
 local Remotes = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Remotes"))
 
+local ENEMY_KILLED_BINDABLE = Remotes.getBindable("EnemyKilled")
+
 local EnemyAI = {}
 
 export type EnemyAIConfig = {
@@ -217,6 +219,13 @@ function EnemyAI.attach(model: Model, config: EnemyAIConfig): EnemyAIState
 			config.onDeath()
 		end
 		local enemyType = model:GetAttribute("EnemyType")
+		local hrp = model:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local position = if hrp then hrp.Position else model:GetPivot().Position
+		local killerUserId = model:GetAttribute("LastAttackerUserId") :: number?
+		local killer: Player? = if killerUserId
+			then Players:GetPlayerByUserId(killerUserId)
+			else nil
+		ENEMY_KILLED_BINDABLE:Fire(killer, enemyType, position)
 		Remotes.get("EnemyKilled"):FireAllClients(model.Name, enemyType)
 		fadeAndDestroy(model)
 	end)
