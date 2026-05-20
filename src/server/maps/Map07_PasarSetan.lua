@@ -117,6 +117,10 @@ local function buildBone(base: Vector3, parent: Instance, index: number, random:
 end
 
 function Map07.build(mapData: MapData, parent: Instance)
+	-- Spawn platform + Gauntlet (3 room + boss arena, theme rooftop).
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+	MapHelpers.getGauntletService().buildGauntlet(mapData.id, mapData.offset)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Mud)
 
 	local mapModel = Instance.new("Model")

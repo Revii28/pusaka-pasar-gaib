@@ -85,6 +85,8 @@ function Map11.build(mapData: MapData, parent: Instance)
 	-- Bug 5 fix: spawn di corridor entry via buildSpawnPlatform (spawnPos
 	-- sudah dipindah 120 stud south outside stupa solid di Constants).
 	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+	-- Gauntlet 3 room + boss arena, theme candi_underground.
+	MapHelpers.getGauntletService().buildGauntlet(mapData.id, mapData.offset)
 
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Rock)
 

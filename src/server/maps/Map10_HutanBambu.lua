@@ -74,6 +74,10 @@ local function buildSpring(base: Vector3, parent: Instance, index: number)
 end
 
 function Map10.build(mapData: MapData, parent: Instance)
+	-- Spawn platform + Gauntlet (3 room + boss arena, theme bamboo).
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+	MapHelpers.getGauntletService().buildGauntlet(mapData.id, mapData.offset)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Grass)
 
 	local mapModel = Instance.new("Model")

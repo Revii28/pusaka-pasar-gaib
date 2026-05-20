@@ -126,6 +126,10 @@ function Map05.build(mapData: MapData, parent: Instance)
 	-- spawnPos (sudah dipindah ke south di Constants).
 	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
 
+	-- Note: PuraBali is Rare tier, NOT in gauntlet config (6 maps gauntlet =
+	-- PasarSetan/LautSelatan/KawahBromo/HutanBambu/Borobudur/PulauKomodo).
+	-- Skip gauntlet for Map05.
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Grass)
 
 	local mapModel = Instance.new("Model")

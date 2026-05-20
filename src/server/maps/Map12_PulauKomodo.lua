@@ -131,6 +131,8 @@ end
 function Map12.build(mapData: MapData, parent: Instance)
 	-- Spawn platform FIRST sebelum apa-apa — guarantee solid landing pad.
 	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+	-- Gauntlet 3 room + boss arena, theme island.
+	MapHelpers.getGauntletService().buildGauntlet(mapData.id, mapData.offset)
 
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Sand)
 

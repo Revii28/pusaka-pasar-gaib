@@ -118,6 +118,8 @@ end
 function Map08.build(mapData: MapData, parent: Instance)
 	-- Spawn platform di sea floor — solid landing sebelum coral scatter.
 	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+	-- Gauntlet 3 room + boss arena, theme underwater.
+	MapHelpers.getGauntletService().buildGauntlet(mapData.id, mapData.offset)
 
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Sand)
 

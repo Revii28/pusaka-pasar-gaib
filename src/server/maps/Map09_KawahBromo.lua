@@ -114,6 +114,8 @@ function Map09.build(mapData: MapData, parent: Instance)
 	-- Bug 6 fix: spawn di crater rim via buildSpawnPlatform (spawnPos sudah
 	-- dipindah 150 stud east ke rim di Constants).
 	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+	-- Gauntlet 3 room + boss arena, theme lava (Banaspati + Buddha Wraith boss).
+	MapHelpers.getGauntletService().buildGauntlet(mapData.id, mapData.offset)
 
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Sand)
 

@@ -213,6 +213,12 @@ function MapHelpers.getPortalService()
 	return require(servicesFolder:WaitForChild("PortalService"))
 end
 
+function MapHelpers.getGauntletService()
+	local serverFolder = ServerScriptService:WaitForChild("Server")
+	local gauntletFolder = serverFolder:WaitForChild("gauntlet")
+	return require(gauntletFolder:WaitForChild("GauntletService"))
+end
+
 local SPAWN_PLATFORM_SIZE = Vector3.new(12, 1, 12)
 local SPAWN_PLATFORM_COLOR = Color3.fromRGB(120, 120, 130)
 local PORTAL_MARKER_COLOR = Color3.fromRGB(100, 200, 255)
