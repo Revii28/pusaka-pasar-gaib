@@ -111,6 +111,10 @@ local function attachAshFall(parent: Instance, center: Vector3, area: Vector3)
 end
 
 function Map09.build(mapData: MapData, parent: Instance)
+	-- Bug 6 fix: spawn di crater rim via buildSpawnPlatform (spawnPos sudah
+	-- dipindah 150 stud east ke rim di Constants).
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Sand)
 
 	local mapModel = Instance.new("Model")
@@ -120,7 +124,52 @@ function Map09.build(mapData: MapData, parent: Instance)
 	local center = mapData.offset
 	local random = Random.new(909)
 
+	-- Bug 6 fix: 4-ring concentric Slate crater bowl (Y-step 5 down per ring).
+	-- Player visual: crater turun bertingkat ke pool lava.
+	for ring = 1, 4 do
+		local outerR = 60 - (ring - 1) * 10
+		MapHelpers.makePart({
+			name = ("CraterRing%d"):format(ring),
+			size = Vector3.new(outerR * 2, 2, outerR * 2),
+			cframe = CFrame.new(center + Vector3.new(0, -ring * 2.5, 0))
+				* CFrame.Angles(0, 0, math.rad(90)),
+			shape = Enum.PartType.Cylinder,
+			material = Enum.Material.Slate,
+			color = Color3.fromRGB(50, 40, 35),
+			parent = mapModel,
+		})
+	end
+
 	buildLavaCrater(center, mapModel)
+
+	-- Bug 6 fix: 5 fumarole vents around crater rim, smoke emitter
+	for i = 1, 5 do
+		local angle = math.rad((i - 1) * 72)
+		local r = 70
+		local pos = center + Vector3.new(math.cos(angle) * r, 0.5, math.sin(angle) * r)
+		local vent = MapHelpers.makePart({
+			name = ("Fumarole%d"):format(i),
+			size = Vector3.new(2, 1, 2),
+			position = pos,
+			shape = Enum.PartType.Cylinder,
+			material = Enum.Material.Slate,
+			color = Color3.fromRGB(30, 25, 22),
+			parent = mapModel,
+		})
+		vent.CFrame = vent.CFrame * CFrame.Angles(0, 0, math.rad(90))
+		if MapHelpers.particlesEnabled() then
+			local smoke = Instance.new("ParticleEmitter")
+			smoke.Name = "VentSmoke"
+			smoke.Color = ColorSequence.new(Color3.fromRGB(80, 70, 65))
+			smoke.Lifetime = NumberRange.new(2, 3)
+			smoke.Rate = 8
+			smoke.Size = NumberSequence.new(1.5)
+			smoke.Transparency = NumberSequence.new(0.6)
+			smoke.Speed = NumberRange.new(3, 5)
+			smoke.EmissionDirection = Enum.NormalId.Right
+			smoke.Parent = vent
+		end
+	end
 
 	local rockCount = MapHelpers.scaledCount(10)
 	for i = 1, rockCount do

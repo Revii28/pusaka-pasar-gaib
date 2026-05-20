@@ -22,22 +22,36 @@ local FRANGIPANI_CENTER = Color3.fromRGB(255, 220, 110)
 local function buildCandi(center: Vector3, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = "Candi"
+	-- Bug 4 fix: pyramid taller Y+0 to Y+30 (was Y+0 to Y+18). Base 16 tall
+	-- (was 8), meru 4 tier dengan step 3 (was 2), final tier center ~Y+28.
 	MapHelpers.makePart({
 		name = "Base",
-		size = Vector3.new(20, 8, 20),
-		position = center + Vector3.new(0, 4, 0),
+		size = Vector3.new(24, 16, 24),
+		position = center + Vector3.new(0, 8, 0),
 		material = Enum.Material.Slate,
 		color = STONE_COLOR,
 		parent = model,
 	})
 
+	-- Pintu masuk (door arch hollow) Y+0 to Y+12 di south face for player
+	-- WalkSpeed clearance.
+	MapHelpers.makePart({
+		name = "Door",
+		size = Vector3.new(6, 12, 1),
+		position = center + Vector3.new(0, 6, -12),
+		material = Enum.Material.Slate,
+		color = Color3.fromRGB(40, 30, 25),
+		canCollide = false,
+		parent = model,
+	})
+
 	for tier = 1, 5 do
 		local scale = 1 - (tier - 1) * 0.15
-		local size = Vector3.new(18 * scale, 1.5, 18 * scale)
+		local size = Vector3.new(22 * scale, 1.8, 22 * scale)
 		MapHelpers.makePart({
 			name = ("Meru%d"):format(tier),
 			size = size,
-			position = center + Vector3.new(0, 8 + (tier - 1) * 2, 0),
+			position = center + Vector3.new(0, 16 + (tier - 1) * 3, 0),
 			material = Enum.Material.Fabric,
 			color = MERU_COLOR,
 			parent = model,
@@ -108,6 +122,10 @@ local function buildFrangipani(base: Vector3, parent: Instance, index: number, r
 end
 
 function Map05.build(mapData: MapData, parent: Instance)
+	-- Bug 4 fix: spawn outside pura courtyard via buildSpawnPlatform di
+	-- spawnPos (sudah dipindah ke south di Constants).
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Grass)
 
 	local mapModel = Instance.new("Model")

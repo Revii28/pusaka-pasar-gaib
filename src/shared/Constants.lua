@@ -248,7 +248,9 @@ Constants.MAPS = {
 		size = Vector3.new(300, 0, 300),
 		biome = "Temple",
 		lightingPreset = "GoldenHour",
-		spawnPos = Vector3.new(2000, 5, 2000),
+		-- spawnPos moved 80 stud south (Z-80) — courtyard outside pura, avoid
+		-- player teleport-inside-stupa-solid bug.
+		spawnPos = Vector3.new(2000, 5, 1920),
 		returnPortalPos = Vector3.new(2000, 5, 1870),
 	},
 	{
@@ -292,7 +294,8 @@ Constants.MAPS = {
 		size = Vector3.new(400, 0, 400),
 		biome = "Volcano",
 		lightingPreset = "FieryRed",
-		spawnPos = Vector3.new(4000, 155, 0),
+		-- spawnPos moved 150 stud east — crater rim, avoid spawn-in-lava bug.
+		spawnPos = Vector3.new(4150, 155, 0),
 		returnPortalPos = Vector3.new(4000, 155, -200),
 	},
 	{
@@ -314,7 +317,9 @@ Constants.MAPS = {
 		size = Vector3.new(500, 0, 500),
 		biome = "UndergroundTemple",
 		lightingPreset = "TorchLit",
-		spawnPos = Vector3.new(0, -395, 4000),
+		-- spawnPos moved 120 stud south — corridor entry, avoid spawn-inside-
+		-- stupa-base bug (stupa center has 40-stud-wide solid tier 1).
+		spawnPos = Vector3.new(0, -395, 3880),
 		returnPortalPos = Vector3.new(0, -395, 3750),
 	},
 	{

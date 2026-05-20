@@ -213,4 +213,53 @@ function MapHelpers.getPortalService()
 	return require(servicesFolder:WaitForChild("PortalService"))
 end
 
+local SPAWN_PLATFORM_SIZE = Vector3.new(12, 1, 12)
+local SPAWN_PLATFORM_COLOR = Color3.fromRGB(120, 120, 130)
+local PORTAL_MARKER_COLOR = Color3.fromRGB(100, 200, 255)
+local PORTAL_MARKER_SIZE = Vector3.new(0.2, 4, 4)
+
+function MapHelpers.buildSpawnPlatform(offset: Vector3, mapName: string, parent: Instance?): Part
+	local target = parent or workspace:FindFirstChild("Maps") or workspace
+
+	local platform = Instance.new("Part")
+	platform.Name = ("SpawnPlatform_%s"):format(mapName)
+	platform.Size = SPAWN_PLATFORM_SIZE
+	platform.Position = offset
+	platform.Anchored = true
+	platform.CanCollide = true
+	platform.Material = Enum.Material.Slate
+	platform.Color = SPAWN_PLATFORM_COLOR
+	platform.TopSurface = Enum.SurfaceType.Smooth
+	platform.BottomSurface = Enum.SurfaceType.Smooth
+	platform.Parent = target
+
+	local marker = Instance.new("Part")
+	marker.Name = "PortalReturnMarker"
+	marker.Shape = Enum.PartType.Cylinder
+	marker.Size = PORTAL_MARKER_SIZE
+	marker.Orientation = Vector3.new(0, 0, 90)
+	marker.Position = platform.Position + Vector3.new(0, 0.6, 0)
+	marker.Anchored = true
+	marker.CanCollide = false
+	marker.Material = Enum.Material.Neon
+	marker.Color = PORTAL_MARKER_COLOR
+	marker.Transparency = 0.3
+	marker.Parent = platform
+
+	return platform
+end
+
+function MapHelpers.ensureClearance(position: Vector3, minClearance: number): boolean
+	local result = workspace:Raycast(position, Vector3.new(0, minClearance, 0))
+	return result == nil
+end
+
+function MapHelpers.getTerrainY(x: number, z: number): number
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Include
+	params.FilterDescendantsInstances = { workspace.Terrain }
+	local result = workspace:Raycast(Vector3.new(x, 200, z), Vector3.new(0, -400, 0), params)
+	return if result then result.Position.Y else 0
+end
+
 return MapHelpers

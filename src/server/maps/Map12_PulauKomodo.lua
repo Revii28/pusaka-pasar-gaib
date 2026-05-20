@@ -129,6 +129,9 @@ local function buildNagaStatue(position: Vector3, parent: Instance)
 end
 
 function Map12.build(mapData: MapData, parent: Instance)
+	-- Spawn platform FIRST sebelum apa-apa — guarantee solid landing pad.
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Sand)
 
 	local mapModel = Instance.new("Model")
@@ -137,6 +140,18 @@ function Map12.build(mapData: MapData, parent: Instance)
 
 	local center = mapData.offset
 	local random = Random.new(1212)
+
+	-- Bug 2 fix: main island BasePart sebagai backup floor (anti-void-fall).
+	-- Stone slab 200x2x200 di Y=-1 (top Y=0) di bawah spawn area, ekspand pulau
+	-- visual padat agar player gak jatuh ke void kalau terrain miss.
+	MapHelpers.makePart({
+		name = "MainIslandBase",
+		size = Vector3.new(200, 2, 200),
+		position = center + Vector3.new(0, -1, 0),
+		material = Enum.Material.Sandstone,
+		color = Color3.fromRGB(180, 160, 130),
+		parent = mapModel,
+	})
 
 	buildMountain(center, mapModel)
 	buildNagaStatue(center + Vector3.new(80, 0, 80), mapModel)

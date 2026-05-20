@@ -372,7 +372,12 @@ function KioskBuilder.build(
 	local kiosk = Instance.new("Model")
 	kiosk.Name = ("Kiosk_%s"):format(vendorName:gsub(" ", ""))
 
-	local base = CFrame.lookAt(npcPosition, npcPosition + lookDirection)
+	-- Kiosk base CFrame at ground (NPC feet level), not HRP level. Shifts the
+	-- whole kiosk down by FEET_TO_HRP_OFFSET so floor sits on terrain, poles
+	-- stand from ground, roof clears NPC head, counter at waist height.
+	local FEET_TO_HRP_OFFSET = 3
+	local groundPos = npcPosition - Vector3.new(0, FEET_TO_HRP_OFFSET, 0)
+	local base = CFrame.lookAt(groundPos, groundPos + lookDirection)
 	local random = Random.new()
 
 	buildFloor(kiosk, base)

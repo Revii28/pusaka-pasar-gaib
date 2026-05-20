@@ -116,6 +116,9 @@ local function buildPalace(center: Vector3, parent: Instance)
 end
 
 function Map08.build(mapData: MapData, parent: Instance)
+	-- Spawn platform di sea floor — solid landing sebelum coral scatter.
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Sand)
 
 	local mapModel = Instance.new("Model")

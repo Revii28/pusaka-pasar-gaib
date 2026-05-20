@@ -15,8 +15,9 @@
 local Chat = game:GetService("Chat")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local KioskBuilder =
-	require(ServerScriptService:WaitForChild("Server"):WaitForChild("KioskBuilder"))
+local serverFolderRoot = ServerScriptService:WaitForChild("Server")
+local KioskBuilder = require(serverFolderRoot:WaitForChild("KioskBuilder"))
+local MapHelpers = require(serverFolderRoot:WaitForChild("maps"):WaitForChild("MapHelpers"))
 
 local NPCSpawner = {}
 
@@ -170,8 +171,10 @@ function NPCSpawner.spawnAll(): { Model }
 				spec.floorPosition.Z
 			)
 		)
-		local placePosition = spec.floorPosition + Vector3.new(0, FEET_Y_OFFSET, 0)
-		local lookTarget = HUB_CENTER + Vector3.new(0, FEET_Y_OFFSET, 0)
+		local terrainY = MapHelpers.getTerrainY(spec.floorPosition.X, spec.floorPosition.Z)
+		local placePosition =
+			Vector3.new(spec.floorPosition.X, terrainY + FEET_Y_OFFSET, spec.floorPosition.Z)
+		local lookTarget = Vector3.new(HUB_CENTER.X, terrainY + FEET_Y_OFFSET, HUB_CENTER.Z)
 		local lookDirection = (lookTarget - placePosition).Unit
 
 		local rigOk, rigErr = pcall(function()

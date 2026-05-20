@@ -82,6 +82,10 @@ local function buildBuddha(position: Vector3, parent: Instance, index: number)
 end
 
 function Map11.build(mapData: MapData, parent: Instance)
+	-- Bug 5 fix: spawn di corridor entry via buildSpawnPlatform (spawnPos
+	-- sudah dipindah 120 stud south outside stupa solid di Constants).
+	MapHelpers.buildSpawnPlatform(mapData.spawnPos, mapData.id, parent)
+
 	MapHelpers.fillTerrain(mapData.offset, mapData.size, Enum.Material.Rock)
 
 	local mapModel = Instance.new("Model")
@@ -90,10 +94,12 @@ function Map11.build(mapData: MapData, parent: Instance)
 
 	local center = mapData.offset
 
+	-- Bug 5 fix: ceiling raise dari Y+12 ke Y+25 untuk player clearance + boss
+	-- arena vertical room. Center: offset.Y + 27.5 (ceiling base Y+25, 5 thick).
 	MapHelpers.makePart({
 		name = "Ceiling",
 		size = Vector3.new(mapData.size.X, 5, mapData.size.Z),
-		position = center + Vector3.new(0, 30, 0),
+		position = center + Vector3.new(0, 27.5, 0),
 		material = Enum.Material.Rock,
 		color = CEILING_COLOR,
 		parent = mapModel,
@@ -115,13 +121,15 @@ function Map11.build(mapData: MapData, parent: Instance)
 		MapHelpers.buildSimpleTorch(pos, mapModel, Color3.fromRGB(255, 150, 60))
 	end
 
+	-- Bug 5 fix: corridor wider (6→8) + taller (12→20) + recenter Y+10 supaya
+	-- ceiling Y+25 ada 5 stud headroom buat WeweGombel 9-tall enemy.
 	for i = 1, 4 do
 		local angle = math.rad((i - 1) * 90)
 		MapHelpers.makePart({
 			name = ("Corridor%d"):format(i),
-			size = Vector3.new(6, 12, 80),
+			size = Vector3.new(8, 20, 80),
 			cframe = CFrame.new(
-				center + Vector3.new(math.cos(angle) * 130, 6, math.sin(angle) * 130)
+				center + Vector3.new(math.cos(angle) * 130, 10, math.sin(angle) * 130)
 			) * CFrame.Angles(0, angle, 0),
 			material = Enum.Material.Slate,
 			color = STONE_GRAY,

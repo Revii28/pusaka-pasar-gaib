@@ -23,7 +23,7 @@ local SCATTER_SEED = 1337
 
 local TERRAIN_BLOCK_CFRAME = CFrame.new(0, -5, 0)
 local TERRAIN_BLOCK_SIZE = Vector3.new(400, 10, 400)
-local TERRAIN_GRASS_LENGTH = 1.5
+local TERRAIN_GRASS_LENGTH = 0.4
 
 local MUD_PATCH_MIN = 8
 local MUD_PATCH_MAX = 12
@@ -60,9 +60,12 @@ local SPAWN_SIZE = Vector3.new(8, 1, 8)
 local SPAWN_POSITION = Vector3.new(0, 0.5, 0)
 local SPAWN_COLOR = Color3.fromRGB(212, 175, 55)
 
-local LAMP_SIZE = Vector3.new(3, 1, 1)
-local LAMP_POSITION = Vector3.new(0, 12, 0)
-local LAMP_COLOR = Color3.fromRGB(100, 70, 30)
+local LAMP_STRING_SIZE = Vector3.new(12, 0.2, 0.2)
+local LAMP_STRING_COLOR = Color3.fromRGB(80, 60, 40)
+local LAMP_BULB_SIZE = Vector3.new(1.5, 1.5, 1.5)
+local LAMP_BULB_COLOR = Color3.fromRGB(255, 180, 80)
+local LAMP_TOP_POSITION = Vector3.new(0, 12, 0)
+local LAMP_BULB_OFFSET = Vector3.new(0, 0.75, 0)
 local LAMP_LIGHT_COLOR = Color3.fromRGB(255, 180, 80)
 local LAMP_LIGHT_BRIGHTNESS_NIGHT = 8
 local LAMP_LIGHT_BRIGHTNESS_DAY = 2
@@ -430,16 +433,34 @@ local function createSpawn(parent: Instance): SpawnLocation
 end
 
 local function createPetromaks(parent: Instance)
-	local lamp = Instance.new("Part")
-	lamp.Name = "Petromaks"
-	lamp.Shape = Enum.PartType.Cylinder
-	lamp.Size = LAMP_SIZE
-	lamp.CFrame = CFrame.new(LAMP_POSITION) * CFrame.Angles(0, 0, math.rad(90))
-	lamp.Anchored = true
-	lamp.CanCollide = false
-	lamp.Material = Enum.Material.Metal
-	lamp.Color = LAMP_COLOR
-	lamp.Parent = parent
+	local model = Instance.new("Model")
+	model.Name = "Petromaks"
+	model.Parent = parent
+
+	-- Hanging string (slim vertical cylinder dari top down)
+	local stringPart = Instance.new("Part")
+	stringPart.Name = "HangingString"
+	stringPart.Shape = Enum.PartType.Cylinder
+	stringPart.Size = LAMP_STRING_SIZE
+	stringPart.CFrame = CFrame.new(LAMP_TOP_POSITION - Vector3.new(0, LAMP_STRING_SIZE.X / 2, 0))
+		* CFrame.Angles(0, 0, math.rad(90))
+	stringPart.Anchored = true
+	stringPart.CanCollide = false
+	stringPart.Material = Enum.Material.Fabric
+	stringPart.Color = LAMP_STRING_COLOR
+	stringPart.Parent = model
+
+	-- Lamp bulb (small Neon orange ball at bottom of string)
+	local bulb = Instance.new("Part")
+	bulb.Name = "Bulb"
+	bulb.Shape = Enum.PartType.Ball
+	bulb.Size = LAMP_BULB_SIZE
+	bulb.Position = LAMP_BULB_OFFSET
+	bulb.Anchored = true
+	bulb.CanCollide = false
+	bulb.Material = Enum.Material.Neon
+	bulb.Color = LAMP_BULB_COLOR
+	bulb.Parent = model
 
 	local light = Instance.new("PointLight")
 	light.Name = "PetromaksGlow"
@@ -448,7 +469,7 @@ local function createPetromaks(parent: Instance)
 		then LAMP_LIGHT_BRIGHTNESS_NIGHT
 		else LAMP_LIGHT_BRIGHTNESS_DAY
 	light.Range = LAMP_LIGHT_RANGE
-	light.Parent = lamp
+	light.Parent = bulb
 end
 
 local function safeStep(label: string, fn: () -> ())

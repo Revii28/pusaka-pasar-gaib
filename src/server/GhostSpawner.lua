@@ -19,9 +19,13 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 local TweenService = game:GetService("TweenService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+local MapHelpers = require(
+	ServerScriptService:WaitForChild("Server"):WaitForChild("maps"):WaitForChild("MapHelpers")
+)
 
 local GhostSpawner = {}
 
@@ -529,8 +533,10 @@ function GhostSpawner.spawnAll(vendorList: { VendorInfo }): { Model }
 
 		local builder = BUILDERS[ghostType]
 		local behindOffset = -vendor.lookDirection * BEHIND_DISTANCE
-		local groundPos =
-			Vector3.new(vendor.position.X + behindOffset.X, 0, vendor.position.Z + behindOffset.Z)
+		local ghostX = vendor.position.X + behindOffset.X
+		local ghostZ = vendor.position.Z + behindOffset.Z
+		local terrainY = MapHelpers.getTerrainY(ghostX, ghostZ)
+		local groundPos = Vector3.new(ghostX, terrainY, ghostZ)
 
 		print(
 			("[GhostSpawner] Spawning %s (companion of %s) at (%.0f, %.0f, %.0f)..."):format(
