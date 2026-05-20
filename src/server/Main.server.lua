@@ -26,6 +26,7 @@ local GhostSpawner = require(serverFolder:WaitForChild("GhostSpawner"))
 local MapManager = require(servicesFolder:WaitForChild("MapManager"))
 local PortalHub = require(servicesFolder:WaitForChild("PortalHub"))
 local CombatService = require(servicesFolder:WaitForChild("CombatService"))
+local EnemySpawner = require(serverFolder:WaitForChild("ai"):WaitForChild("EnemySpawner"))
 
 local function safeRun(label: string, fn: () -> any, successMsg: string?): any?
 	local ok, result = pcall(fn)
@@ -75,6 +76,13 @@ safeRun(
 
 print("[Main] Initializing combat...")
 safeRun("CombatService.init", CombatService.init, "[Main] Combat M1 ready.")
+
+print("[Main] Spawning enemies across 12 maps...")
+safeRun(
+	"EnemySpawner.assignEnemiesToAllMaps",
+	EnemySpawner.assignEnemiesToAllMaps,
+	"[Main] Enemies ready."
+)
 
 print("[Main] Boot complete.")
 
