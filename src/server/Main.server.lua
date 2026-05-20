@@ -25,6 +25,7 @@ local NPCSpawner = require(serverFolder:WaitForChild("NPCSpawner"))
 local GhostSpawner = require(serverFolder:WaitForChild("GhostSpawner"))
 local MapManager = require(servicesFolder:WaitForChild("MapManager"))
 local PortalHub = require(servicesFolder:WaitForChild("PortalHub"))
+local CombatService = require(servicesFolder:WaitForChild("CombatService"))
 
 local function safeRun(label: string, fn: () -> any, successMsg: string?): any?
 	local ok, result = pcall(fn)
@@ -72,10 +73,18 @@ safeRun(
 	"[Main] Ambient particles active."
 )
 
+print("[Main] Initializing combat...")
+safeRun("CombatService.init", CombatService.init, "[Main] Combat M1 ready.")
+
 print("[Main] Boot complete.")
 
 local function onPlayerAdded(player: Player)
 	print(("[Main] Player joined: %s"):format(player.Name))
+	player.CharacterAdded:Connect(function(char)
+		local hum = char:WaitForChild("Humanoid") :: Humanoid
+		hum.MaxHealth = Constants.COMBAT.playerMaxHealth
+		hum.Health = Constants.COMBAT.playerMaxHealth
+	end)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)

@@ -20,6 +20,27 @@ export type MapData = {
 	returnPortalPos: Vector3,
 }
 
+export type EnemyTierStats = {
+	hp: number,
+	damage: number,
+	walkSpeed: number,
+	chaseSpeed: number,
+	detectRange: number,
+	attackRange: number,
+	attackCooldown: number,
+}
+
+export type EnemyDef = {
+	tier: string,
+	displayName: string,
+	rigSize: number,
+}
+
+export type EnemySpawnEntry = {
+	type: string,
+	count: number,
+}
+
 local Constants = {}
 
 Constants.GAME_NAME = "PUSAKA: Pasar Gaib"
@@ -31,6 +52,131 @@ Constants.DEBUG_MODE = true
 -- MYSTIC_NIGHT = malam jam 20 dengan Bloom/CC/DOF/Atmosphere + fog + particles.
 -- Default DEBUG_BRIGHT sampai user verify semua prop keliatan, lalu ganti.
 Constants.LIGHTING_PRESET = "DEBUG_BRIGHT"
+
+-- Combat M1 melee settings. Player melee range + damage + cooldown anti-spam.
+Constants.COMBAT = {
+	playerMaxHealth = 100,
+	m1Damage = 20,
+	m1Range = 5,
+	m1Cooldown = 0.5,
+}
+table.freeze(Constants.COMBAT)
+
+-- Enemy stat balance per tier (Trash → Legendary). EnemyAI.attach() reads
+-- Constants.ENEMY_TIERS[enemyDef.tier] untuk konfig HP/damage/speed/range.
+Constants.ENEMY_TIERS = {
+	Trash = {
+		hp = 30,
+		damage = 5,
+		walkSpeed = 8,
+		chaseSpeed = 12,
+		detectRange = 20,
+		attackRange = 4,
+		attackCooldown = 1.0,
+	},
+	Common = {
+		hp = 80,
+		damage = 12,
+		walkSpeed = 8,
+		chaseSpeed = 14,
+		detectRange = 25,
+		attackRange = 4,
+		attackCooldown = 1.5,
+	},
+	Uncommon = {
+		hp = 130,
+		damage = 18,
+		walkSpeed = 9,
+		chaseSpeed = 16,
+		detectRange = 28,
+		attackRange = 5,
+		attackCooldown = 1.5,
+	},
+	Rare = {
+		hp = 200,
+		damage = 25,
+		walkSpeed = 10,
+		chaseSpeed = 18,
+		detectRange = 32,
+		attackRange = 5,
+		attackCooldown = 1.3,
+	},
+	Epic = {
+		hp = 350,
+		damage = 35,
+		walkSpeed = 10,
+		chaseSpeed = 20,
+		detectRange = 35,
+		attackRange = 6,
+		attackCooldown = 1.2,
+	},
+	Boss = {
+		hp = 1500,
+		damage = 60,
+		walkSpeed = 8,
+		chaseSpeed = 16,
+		detectRange = 50,
+		attackRange = 8,
+		attackCooldown = 1.0,
+	},
+	Legendary = {
+		hp = 3000,
+		damage = 90,
+		walkSpeed = 8,
+		chaseSpeed = 14,
+		detectRange = 60,
+		attackRange = 10,
+		attackCooldown = 0.8,
+	},
+} :: { [string]: EnemyTierStats }
+table.freeze(Constants.ENEMY_TIERS)
+
+-- 12 enemy type definitions. tier → lookup di ENEMY_TIERS.
+-- rigSize = scale multiplier (1.0 = baseline ~5 stud tall, 0.5 = mini, 3.0 = giant).
+Constants.ENEMIES = {
+	Tuyul = { tier = "Trash", displayName = "Tuyul", rigSize = 0.5 },
+	Pocong = { tier = "Common", displayName = "Pocong", rigSize = 1.0 },
+	Genderuwo = { tier = "Uncommon", displayName = "Genderuwo", rigSize = 1.3 },
+	Kuntilanak = { tier = "Rare", displayName = "Kuntilanak", rigSize = 1.0 },
+	Leak = { tier = "Rare", displayName = "Leak", rigSize = 1.0 },
+	SundelBolong = { tier = "Rare", displayName = "Sundel Bolong", rigSize = 1.0 },
+	Banaspati = { tier = "Epic", displayName = "Banaspati", rigSize = 1.2 },
+	WeweGombel = { tier = "Epic", displayName = "Wewe Gombel", rigSize = 1.5 },
+	ButoIjo = { tier = "Epic", displayName = "Buto Ijo", rigSize = 2.0 },
+	SetanPasar = { tier = "Boss", displayName = "Setan Pasar", rigSize = 1.5 },
+	NagaKomodo = { tier = "Legendary", displayName = "Naga Komodo", rigSize = 3.0 },
+	BuddhaWraith = { tier = "Legendary", displayName = "Buddha Wraith", rigSize = 2.5 },
+} :: { [string]: EnemyDef }
+table.freeze(Constants.ENEMIES)
+
+-- Per-map enemy spawn assignment. EnemySpawner.assignEnemiesToAllMaps() iterate
+-- ini → require src/server/ai/enemies/<type>.lua → spawn count instances.
+-- Total ~55 ghost + 4 boss/mini-boss across 12 maps.
+Constants.ENEMY_SPAWN_MAP = {
+	DesaPangkalan = { { type = "Tuyul", count = 3 } },
+	KuburanMbahBuyut = { { type = "Pocong", count = 5 } },
+	HutanLarangan = { { type = "Genderuwo", count = 4 } },
+	GunungLawu = { { type = "SundelBolong", count = 3 } },
+	PuraBali = { { type = "Leak", count = 3 } },
+	GoaPetruk = { { type = "Kuntilanak", count = 4 } },
+	PasarSetan = {
+		{ type = "SetanPasar", count = 1 },
+		{ type = "Pocong", count = 3 },
+		{ type = "Kuntilanak", count = 3 },
+	},
+	LautSelatan = { { type = "ButoIjo", count = 4 } },
+	KawahBromo = { { type = "Banaspati", count = 5 } },
+	HutanBambu = {
+		{ type = "WeweGombel", count = 2 },
+		{ type = "Kuntilanak", count = 3 },
+	},
+	BorobudurBawahTanah = { { type = "BuddhaWraith", count = 1 } },
+	PulauKomodo = {
+		{ type = "NagaKomodo", count = 1 },
+		{ type = "Tuyul", count = 4 },
+	},
+} :: { [string]: { EnemySpawnEntry } }
+table.freeze(Constants.ENEMY_SPAWN_MAP)
 
 -- Performance toggles. Default = full quality. Turunin manual kalau frame
 -- rate jelek di low-end device. Lampion tween Random.new() default seed
