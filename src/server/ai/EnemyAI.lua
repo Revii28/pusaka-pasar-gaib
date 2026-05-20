@@ -225,8 +225,29 @@ function EnemyAI.attach(model: Model, config: EnemyAIConfig): EnemyAIState
 		local killer: Player? = if killerUserId
 			then Players:GetPlayerByUserId(killerUserId)
 			else nil
-		ENEMY_KILLED_BINDABLE:Fire(killer, enemyType, position)
+		local dropMultiplier = (model:GetAttribute("DropMultiplier") or 1.0) :: number
+		local gauntletMap = model:GetAttribute("GauntletMap") :: string?
+		local roomTier = model:GetAttribute("RoomTier") :: number?
+
+		ENEMY_KILLED_BINDABLE:Fire(killer, enemyType, position, dropMultiplier)
 		Remotes.get("EnemyKilled"):FireAllClients(model.Name, enemyType)
+
+		-- Notify gauntlet kalau enemy belong to gauntlet map → unlock gate
+		-- saat room cleared.
+		if gauntletMap and roomTier then
+			local serverFolder = game:GetService("ServerScriptService"):FindFirstChild("Server")
+			local gauntletFolder = serverFolder and serverFolder:FindFirstChild("gauntlet")
+			local serviceMS = gauntletFolder and gauntletFolder:FindFirstChild("GauntletService")
+			if serviceMS then
+				local ok, GauntletService = pcall(require, serviceMS)
+				if ok then
+					pcall(function()
+						(GauntletService :: any).notifyEnemyKilled(gauntletMap, roomTier)
+					end)
+				end
+			end
+		end
+
 		fadeAndDestroy(model)
 	end)
 

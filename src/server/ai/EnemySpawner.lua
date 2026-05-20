@@ -15,6 +15,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local Constants = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Constants"))
+local GauntletConfig =
+	require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GauntletConfig"))
+local GauntletService = require(
+	ServerScriptService:WaitForChild("Server")
+		:WaitForChild("gauntlet")
+		:WaitForChild("GauntletService")
+)
 
 local EnemySpawner = {}
 
@@ -55,65 +62,174 @@ local function pickSpawnPosition(mapData: Constants.MapData, random: Random): Ve
 	)
 end
 
+local function tagEnemyForGauntlet(
+	enemyModel: Instance,
+	mapName: string,
+	roomTier: number,
+	dropMultiplier: number
+)
+	if not enemyModel:IsA("Model") then
+		return
+	end
+	enemyModel:SetAttribute("GauntletMap", mapName)
+	enemyModel:SetAttribute("RoomTier", roomTier)
+	enemyModel:SetAttribute("DropMultiplier", dropMultiplier)
+	GauntletService.registerEnemySpawn(mapName, roomTier)
+end
+
+local function spawnEnemyInstance(
+	enemyType: string,
+	enemiesFolder: Folder,
+	pos: Vector3,
+	gauntletTag: { mapName: string, roomTier: number, dropMultiplier: number }?
+): boolean
+	local moduleScript = findEnemyModule(enemyType)
+	if not moduleScript then
+		return false
+	end
+	local ok, enemyModule = pcall(require, moduleScript)
+	if not ok then
+		warn(("[EnemySpawner] require %s failed: %s"):format(enemyType, tostring(enemyModule)))
+		return false
+	end
+	local spawnFn = (enemyModule :: any).spawn
+	if type(spawnFn) ~= "function" then
+		return false
+	end
+
+	-- Snapshot enemiesFolder children count to identify the new spawn for tagging.
+	local before: { [Instance]: boolean } = {}
+	for _, child in ipairs(enemiesFolder:GetChildren()) do
+		before[child] = true
+	end
+
+	local spawnOk, spawnErr = pcall(spawnFn, pos, enemiesFolder)
+	if not spawnOk then
+		warn(("[EnemySpawner] spawn %s failed: %s"):format(enemyType, tostring(spawnErr)))
+		return false
+	end
+
+	if gauntletTag then
+		for _, child in ipairs(enemiesFolder:GetChildren()) do
+			if not before[child] then
+				tagEnemyForGauntlet(
+					child,
+					gauntletTag.mapName,
+					gauntletTag.roomTier,
+					gauntletTag.dropMultiplier
+				)
+			end
+		end
+	end
+	return true
+end
+
+local function spawnGauntletEnemies(
+	mapData: Constants.MapData,
+	gauntletDef: GauntletConfig.MapGauntletConfig,
+	enemiesFolder: Folder,
+	random: Random
+): number
+	local total = 0
+	for _, room in ipairs(gauntletDef.rooms) do
+		local combatPos = mapData.offset + room.combatOffset
+		for _, entry in ipairs(room.enemies) do
+			for _ = 1, entry.count do
+				local jitterX = random:NextNumber(-6, 6)
+				local jitterZ = random:NextNumber(-6, 6)
+				local pos = combatPos + Vector3.new(jitterX, 3, jitterZ)
+				if
+					spawnEnemyInstance(entry.type, enemiesFolder, pos, {
+						mapName = mapData.id,
+						roomTier = room.id,
+						dropMultiplier = room.dropMultiplier,
+					})
+				then
+					total += 1
+				end
+			end
+		end
+		print(
+			("[EnemySpawner] %s Room %d: enemies spawned (x%.1f drop)"):format(
+				mapData.id,
+				room.id,
+				room.dropMultiplier
+			)
+		)
+	end
+
+	-- Boss
+	local bossPos = mapData.offset + gauntletDef.bossOffset + Vector3.new(0, 4, 0)
+	for _ = 1, gauntletDef.bossEnemy.count do
+		if
+			spawnEnemyInstance(gauntletDef.bossEnemy.type, enemiesFolder, bossPos, {
+				mapName = mapData.id,
+				roomTier = 4,
+				dropMultiplier = gauntletDef.bossDropMultiplier,
+			})
+		then
+			total += 1
+		end
+	end
+	if gauntletDef.bossEnemy.minions then
+		for _, minion in ipairs(gauntletDef.bossEnemy.minions) do
+			for _ = 1, minion.count do
+				local pos = bossPos
+					+ Vector3.new(random:NextNumber(-8, 8), 0, random:NextNumber(-8, 8))
+				if
+					spawnEnemyInstance(minion.type, enemiesFolder, pos, {
+						mapName = mapData.id,
+						roomTier = 4,
+						dropMultiplier = gauntletDef.bossDropMultiplier,
+					})
+				then
+					total += 1
+				end
+			end
+		end
+	end
+	print(
+		("[EnemySpawner] %s Boss arena: enemies spawned (x%.1f drop)"):format(
+			mapData.id,
+			gauntletDef.bossDropMultiplier
+		)
+	)
+	return total
+end
+
 function EnemySpawner.assignEnemiesToAllMaps()
 	local enemiesFolder = getOrCreateEnemiesFolder()
 	local totalSpawned = 0
 	local random = Random.new(20260520)
 
 	for _, mapData in ipairs(Constants.MAPS) do
+		local gauntletDef = GauntletConfig[mapData.id]
+		if gauntletDef then
+			-- Gauntlet map: spawn per-room (NOT center-of-map default)
+			local count = spawnGauntletEnemies(mapData, gauntletDef, enemiesFolder, random)
+			totalSpawned += count
+			print(
+				("[EnemySpawner] %s (gauntlet): %d total enemies spawned."):format(
+					mapData.id,
+					count
+				)
+			)
+			continue
+		end
+
+		-- Non-gauntlet maps: legacy center-of-map scatter from ENEMY_SPAWN_MAP
 		local spawnList = Constants.ENEMY_SPAWN_MAP[mapData.id]
 		if not spawnList then
 			continue
 		end
 
 		for _, entry in ipairs(spawnList) do
-			local moduleScript = findEnemyModule(entry.type)
-			if not moduleScript then
-				warn(
-					("[EnemySpawner] %s: module %s not found, skipped (count=%d)"):format(
-						mapData.id,
-						entry.type,
-						entry.count
-					)
-				)
-				continue
-			end
-
-			local ok, enemyModule = pcall(require, moduleScript)
-			if not ok then
-				warn(
-					("[EnemySpawner] %s: require %s failed: %s"):format(
-						mapData.id,
-						entry.type,
-						tostring(enemyModule)
-					)
-				)
-				continue
-			end
-
-			local spawnFn = (enemyModule :: any).spawn
-			if type(spawnFn) ~= "function" then
-				warn(
-					("[EnemySpawner] %s: %s.spawn() not a function"):format(mapData.id, entry.type)
-				)
-				continue
-			end
-
 			local mapSpawnCount = 0
 			for _ = 1, entry.count do
 				local pos = pickSpawnPosition(mapData, random)
-				local spawnOk, spawnErr = pcall(spawnFn, pos, enemiesFolder)
-				if spawnOk then
+				if spawnEnemyInstance(entry.type, enemiesFolder, pos, nil) then
 					mapSpawnCount += 1
 					totalSpawned += 1
-				else
-					warn(
-						("[EnemySpawner] %s: spawn %s failed: %s"):format(
-							mapData.id,
-							entry.type,
-							tostring(spawnErr)
-						)
-					)
 				end
 			end
 			print(

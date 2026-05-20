@@ -113,7 +113,12 @@ local function spawnDrop(itemId: string, item: Items.ItemDef, position: Vector3)
 	end)
 end
 
-function LootService.handleKill(killer: Player?, enemyType: string, position: Vector3)
+function LootService.handleKill(
+	killer: Player?,
+	enemyType: string,
+	position: Vector3,
+	dropMultiplier: number?
+)
 	local enemyData = Constants.ENEMIES[enemyType]
 	if not enemyData then
 		warn(("[LootService] Unknown enemyType: %s"):format(tostring(enemyType)))
@@ -126,18 +131,32 @@ function LootService.handleKill(killer: Player?, enemyType: string, position: Ve
 		return
 	end
 
-	local item = Items[itemId]
-	if not item then
+	local baseItem = Items[itemId]
+	if not baseItem then
 		warn(("[LootService] Item lookup failed: %s"):format(itemId))
 		return
 	end
 
+	-- Gauntlet hook: scale item value + tag name dengan multiplier kalau >1.0.
+	local mult = dropMultiplier or 1.0
+	local item: Items.ItemDef = baseItem
+	if mult > 1.0 then
+		local suffix = if mult >= 3.0 then " (Boss)" elseif mult >= 2.0 then " (+)" else ""
+		item = {
+			name = baseItem.name .. suffix,
+			tier = baseItem.tier,
+			icon = baseItem.icon,
+			value = math.floor(baseItem.value * mult),
+		}
+	end
+
 	spawnDrop(itemId, item, position)
 	print(
-		("[LootService] %s dropped %s (%s) at (%.0f, %.0f, %.0f) — killer: %s"):format(
+		("[LootService] %s dropped %s (%s) [x%.1f] at (%.0f, %.0f, %.0f) — killer: %s"):format(
 			enemyType,
 			item.name,
 			item.tier,
+			mult,
 			position.X,
 			position.Y,
 			position.Z,
@@ -147,9 +166,10 @@ function LootService.handleKill(killer: Player?, enemyType: string, position: Ve
 end
 
 function LootService.init()
-	Remotes.getBindable("EnemyKilled").Event:Connect(function(killer, enemyType, position)
-		LootService.handleKill(killer, enemyType, position)
-	end)
+	Remotes.getBindable("EnemyKilled").Event
+		:Connect(function(killer, enemyType, position, dropMultiplier)
+			LootService.handleKill(killer, enemyType, position, dropMultiplier)
+		end)
 	print("[LootService] Listening for EnemyKilled events.")
 end
 
