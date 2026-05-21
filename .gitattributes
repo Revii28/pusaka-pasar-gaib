@@ -1,0 +1,2 @@
+# Binary assets — disable text/EOL normalization & diff
+*.fbx binary
