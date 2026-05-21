@@ -113,7 +113,7 @@ local function lungeHead(head: BasePart, target: Player, damage: number)
 end
 
 function Leak.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("Leak", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 
 	EnemyAI.attach(model, {

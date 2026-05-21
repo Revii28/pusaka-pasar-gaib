@@ -152,7 +152,7 @@ local function startSummonLoop(model: Model, enemiesFolder: Instance)
 end
 
 function SetanPasar.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("SetanPasar", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	EnemyRigs.attachBossHealthBar(model, "Setan Pasar")
 	EnemyAI.attach(model, {

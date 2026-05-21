@@ -143,7 +143,7 @@ local function startProximityWatcher(model: Model)
 end
 
 function SundelBolong.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("SundelBolong", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	EnemyAI.attach(model, {
 		tier = "Rare",

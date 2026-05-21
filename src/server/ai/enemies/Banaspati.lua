@@ -158,7 +158,7 @@ end
 
 function Banaspati.spawn(spawnPos: Vector3, parent: Instance): Model
 	local hoverPos = spawnPos + Vector3.new(0, HOVER_HEIGHT, 0)
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("Banaspati", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	startHoverLock(model, hoverPos.Y)
 	EnemyAI.attach(model, {

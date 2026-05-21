@@ -208,7 +208,7 @@ local function startFireBreathLoop(model: Model)
 end
 
 function NagaKomodo.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("NagaKomodo", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	EnemyRigs.attachBossHealthBar(model, "Naga Komodo")
 	EnemyAI.attach(model, {

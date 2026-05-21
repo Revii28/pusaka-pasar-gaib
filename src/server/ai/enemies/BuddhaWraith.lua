@@ -196,7 +196,7 @@ local function startTeleportLoop(model: Model)
 end
 
 function BuddhaWraith.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("BuddhaWraith", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	EnemyRigs.attachBossHealthBar(model, "Buddha Wraith")
 	EnemyAI.attach(model, {

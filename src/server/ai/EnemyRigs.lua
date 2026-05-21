@@ -7,15 +7,27 @@
 	             anchored cosmetic). Tiap enemy module call helper relevant atau
 	             build dari scratch dengan helper di sini.
 
-	             Per-enemy asset notes:
-	             - Pocong: Blender-generated MeshPart, location
-	               ReplicatedStorage.EnemyMeshes.PocongMesh (manual import via
-	               Studio UI). Fallback: primitive parts (legacy buildPocongRig
-	               logic preserved di enemies/Pocong.lua buildPrimitiveRig()).
+	             Mesh pipeline: enemy visuals are Blender-generated FBX uploaded
+	             to Roblox Open Cloud as Model assets (scripts/
+	             upload_enemy_assets.py). Asset IDs live di
+	             ReplicatedStorage.Shared.EnemyMeshIds. EnemyRigs.tryCloneMesh
+	             load via InsertService:LoadAsset (server-side, cached) lalu weld
+	             mesh ke Humanoid rig. Tiap enemy module fallback ke primitive
+	             buildRig kalau asset gak ke-load.
 	@author      Claude Agent (primary coder)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InsertService = game:GetService("InsertService")
+
 local EnemyRigs = {}
+
+-- Mesh asset templates loaded once via InsertService:LoadAsset, cloned per
+-- spawn. Negative results cached so failed loads don't retry every spawn.
+-- Server-side only (LoadAsset). _meshIds lazily required on first lookup.
+local _meshTemplateCache: { [string]: Model } = {}
+local _meshLoadFailed: { [string]: boolean } = {}
+local _meshIds: { [string]: string }? = nil
 
 function EnemyRigs.weld(part0: BasePart, part1: BasePart)
 	local w = Instance.new("WeldConstraint")
@@ -134,6 +146,106 @@ function EnemyRigs.attachBossHealthBar(model: Model, displayName: string)
 	end
 	refresh()
 	hum.HealthChanged:Connect(refresh)
+end
+
+local function getMeshIds(): { [string]: string }
+	if _meshIds == nil then
+		local shared = ReplicatedStorage:FindFirstChild("Shared")
+		local mod = if shared then shared:FindFirstChild("EnemyMeshIds") else nil
+		if mod and mod:IsA("ModuleScript") then
+			local ok, result = pcall(require, mod)
+			_meshIds = (
+				if ok and type(result) == "table" then result else {}
+			) :: { [string]: string }
+		else
+			_meshIds = {}
+		end
+	end
+	return _meshIds :: { [string]: string }
+end
+
+-- Load (once) the Open Cloud Model asset for an enemy and cache the returned
+-- container as a clone template. Server-only. Returns nil on miss/failure so
+-- callers fall back to their primitive buildRig.
+function EnemyRigs.loadMeshTemplate(enemyName: string): Model?
+	local cached = _meshTemplateCache[enemyName]
+	if cached then
+		return cached
+	end
+	if _meshLoadFailed[enemyName] then
+		return nil
+	end
+	local ref = getMeshIds()[enemyName]
+	if not ref then
+		_meshLoadFailed[enemyName] = true
+		return nil
+	end
+	local digits = string.match(ref, "%d+")
+	local assetId = if digits then tonumber(digits) else nil
+	if not assetId then
+		_meshLoadFailed[enemyName] = true
+		return nil
+	end
+	local ok, loaded = pcall(function()
+		return InsertService:LoadAsset(assetId)
+	end)
+	if not ok or typeof(loaded) ~= "Instance" then
+		warn(
+			`[EnemyRigs] LoadAsset failed for {enemyName} (rbxassetid://{assetId}): {tostring(
+				loaded
+			)}`
+		)
+		_meshLoadFailed[enemyName] = true
+		return nil
+	end
+	local container = loaded :: Model
+	_meshTemplateCache[enemyName] = container
+	return container
+end
+
+-- Build a Humanoid-driven rig using the uploaded mesh asset as visual. HRP
+-- sized from the mesh bounding box; all mesh BaseParts welded to HRP. Returns
+-- nil if the asset is unavailable (server-only) so caller -> primitive rig.
+function EnemyRigs.tryCloneMesh(enemyName: string, spawnPos: Vector3): Model?
+	local template = EnemyRigs.loadMeshTemplate(enemyName)
+	if not template then
+		return nil
+	end
+	local container = template:Clone()
+
+	local parts: { BasePart } = {}
+	for _, desc in ipairs(container:GetDescendants()) do
+		if desc:IsA("BasePart") then
+			table.insert(parts, desc)
+		end
+	end
+	if #parts == 0 then
+		container:Destroy()
+		return nil
+	end
+
+	local _, size = container:GetBoundingBox()
+	local hrpSize = Vector3.new(math.max(size.X, 2), math.max(size.Y, 4), math.max(size.Z, 2))
+
+	local model = Instance.new("Model")
+	model.Name = enemyName .. "_Hostile"
+	model:SetAttribute("EnemyType", enemyName)
+	model:SetAttribute("RigVariant", "Mesh")
+
+	local hrp = EnemyRigs.makeRootPart(hrpSize, model)
+	container:PivotTo(hrp.CFrame)
+
+	for _, part in ipairs(parts) do
+		part.Anchored = false
+		part.CanCollide = false
+		part.Massless = true
+		part.Parent = model
+		EnemyRigs.weld(hrp, part)
+	end
+	container:Destroy()
+
+	EnemyRigs.makeHumanoid(model, enemyName)
+	return EnemyRigs.finalize(model, hrp, spawnPos)
 end
 
 return EnemyRigs

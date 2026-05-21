@@ -121,7 +121,7 @@ local function popCoinEffect(pos: Vector3)
 end
 
 function Tuyul.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("Tuyul", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 
 	-- Custom detect range: gunakan tier Trash default (20) — masih cukup short.

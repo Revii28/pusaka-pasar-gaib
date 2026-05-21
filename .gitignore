@@ -18,3 +18,18 @@ aftman.exe
 Thumbs.db
 
 # NOTE: *.rbxl is intentionally NOT ignored — the place file is tracked.
+
+# Credentials
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Blender temp
+*.blend1
+
+# Sketchfab source downloads (sibling dir outside repo; ignore if copied in)
+sketchfab-downloads/

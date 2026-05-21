@@ -2,18 +2,16 @@
 --[[
 	@module      Pocong
 	@description Hostile Pocong enemy. Common tier. Wrapped body + simpul head.
-	             Prefer Blender-generated MeshPart asset (ReplicatedStorage.
-	             EnemyMeshes.PocongMesh) — falls back to primitive part build
-	             when mesh template absent (defensive: user imports asset
-	             manually via Studio UI, code keeps shipping either way).
-	             Decorative hop animation TweenService Y+2 every ~3s — visual
-	             cosmetic, gak ngaruh combat (Humanoid:MoveTo() FSM yang
+	             Visual: prefer Open Cloud mesh via EnemyRigs.tryCloneMesh
+	             ("Pocong") (InsertService:LoadAsset, server-side, cached) —
+	             fallback ke primitive fabric body + head ball kalau asset gak
+	             ke-load. Decorative hop animation TweenService Y+2 every ~3s —
+	             visual cosmetic, gak ngaruh combat (Humanoid:MoveTo() FSM yang
 	             handle pergerakan). PatrolRadius 30. Standard EnemyAI default
 	             onAttack = Humanoid:TakeDamage.
 	@author      Claude Agent (primary coder)
 ]]
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local TweenService = game:GetService("TweenService")
 
@@ -25,68 +23,10 @@ local Pocong = {}
 
 local FABRIC_COLOR = Color3.fromRGB(225, 220, 205)
 local POCONG_BODY_SIZE = Vector3.new(3, 7, 3)
-local MESH_FOLDER_NAME = "EnemyMeshes"
-local MESH_NAME = "PocongMesh"
 
--- Try to clone Blender-imported PocongMesh from ReplicatedStorage.EnemyMeshes.
--- Returns Clone (BasePart or Model) on success, nil on miss. Non-blocking —
--- uses FindFirstChild bukan WaitForChild supaya kalau folder/mesh belum
--- di-import, fallback primitive langsung kepake tanpa stall thread.
-local function tryClonePocongMesh(): Instance?
-	local folder = ReplicatedStorage:FindFirstChild(MESH_FOLDER_NAME)
-	if not folder then
-		return nil
-	end
-	local template = folder:FindFirstChild(MESH_NAME)
-	if not template then
-		return nil
-	end
-	if not template:IsA("BasePart") and not template:IsA("Model") then
-		return nil
-	end
-	return template:Clone()
-end
-
--- Mesh rig: HRP (invisible, sized to POCONG_BODY_SIZE so Humanoid collision
--- bounds tetep konsisten across variant) + cloned mesh welded as visual.
--- Handle both MeshPart (single part) and Model (multi-part Blender export).
-local function buildMeshRig(template: Instance, spawnPos: Vector3): Model
-	local model = Instance.new("Model")
-	model.Name = "Pocong_Hostile"
-	model:SetAttribute("EnemyType", "Pocong")
-	model:SetAttribute("RigVariant", "Mesh")
-
-	local hrp = EnemyRigs.makeRootPart(POCONG_BODY_SIZE, model)
-
-	if template:IsA("BasePart") then
-		template.Name = "Body"
-		template.Anchored = false
-		template.CanCollide = true
-		template.Massless = true
-		template.Parent = model
-		template.CFrame = hrp.CFrame
-		EnemyRigs.weld(hrp, template)
-	else
-		template.Parent = model
-		if template:IsA("Model") and template.PrimaryPart then
-			template:PivotTo(hrp.CFrame)
-		end
-		for _, desc in ipairs(template:GetDescendants()) do
-			if desc:IsA("BasePart") then
-				desc.Anchored = false
-				desc.Massless = true
-				EnemyRigs.weld(hrp, desc)
-			end
-		end
-	end
-
-	EnemyRigs.makeHumanoid(model, "Pocong")
-	return EnemyRigs.finalize(model, hrp, spawnPos)
-end
-
--- Primitive rig (legacy): fabric body cylinder + simpul head ball welded
--- to HRP. Preserved sebagai fallback kalau MeshPart belum di-import ke
--- ReplicatedStorage.EnemyMeshes — game tetep playable tanpa asset.
+-- Primitive rig (fallback): fabric body cylinder + simpul head ball welded
+-- to HRP. Dipakai kalau Open Cloud mesh asset gak ke-load (LoadAsset gagal /
+-- server-only / ID kosong) — game tetep playable tanpa asset.
 local function buildPrimitiveRig(spawnPos: Vector3): Model
 	local model = Instance.new("Model")
 	model.Name = "Pocong_Hostile"
@@ -123,14 +63,6 @@ local function buildPrimitiveRig(spawnPos: Vector3): Model
 	return EnemyRigs.finalize(model, hrp, spawnPos)
 end
 
-local function buildRig(spawnPos: Vector3): Model
-	local template = tryClonePocongMesh()
-	if template then
-		return buildMeshRig(template, spawnPos)
-	end
-	return buildPrimitiveRig(spawnPos)
-end
-
 local function playHopLoop(model: Model)
 	local hrp = model:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not hrp then
@@ -153,7 +85,7 @@ local function playHopLoop(model: Model)
 end
 
 function Pocong.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("Pocong", spawnPos) or buildPrimitiveRig(spawnPos)
 	model.Parent = parent
 	playHopLoop(model)
 	EnemyAI.attach(model, {

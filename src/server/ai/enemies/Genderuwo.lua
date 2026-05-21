@@ -82,7 +82,7 @@ local function buildRig(spawnPos: Vector3): Model
 end
 
 function Genderuwo.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("Genderuwo", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	EnemyAI.attach(model, {
 		tier = "Uncommon",

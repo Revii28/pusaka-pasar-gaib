@@ -135,7 +135,7 @@ local function slamShockwave(origin: Vector3, damage: number)
 end
 
 function ButoIjo.spawn(spawnPos: Vector3, parent: Instance): Model
-	local model = buildRig(spawnPos)
+	local model = EnemyRigs.tryCloneMesh("ButoIjo", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
 	EnemyAI.attach(model, {
 		tier = "Epic",
