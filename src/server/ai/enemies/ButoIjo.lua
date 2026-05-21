@@ -137,6 +137,7 @@ end
 function ButoIjo.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("ButoIjo", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyStrideLocomotion(model)
 	EnemyAI.attach(model, {
 		tier = "Epic",
 		spawnPos = spawnPos,

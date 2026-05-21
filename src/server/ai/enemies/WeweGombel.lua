@@ -112,6 +112,7 @@ end
 function WeweGombel.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("WeweGombel", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyShuffleLocomotion(model)
 	EnemyAI.attach(model, {
 		tier = "Epic",
 		spawnPos = spawnPos,

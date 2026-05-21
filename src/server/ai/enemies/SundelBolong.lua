@@ -145,6 +145,7 @@ end
 function SundelBolong.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("SundelBolong", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyFloatLocomotion(model)
 	EnemyAI.attach(model, {
 		tier = "Rare",
 		spawnPos = spawnPos,
