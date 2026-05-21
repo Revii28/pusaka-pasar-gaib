@@ -123,6 +123,7 @@ end
 function Tuyul.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("Tuyul", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyScurryLocomotion(model)
 
 	-- Custom detect range: gunakan tier Trash default (20) — masih cukup short.
 	-- Coin pop on death via onDeath callback.

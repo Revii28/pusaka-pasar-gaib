@@ -248,4 +248,75 @@ function EnemyRigs.tryCloneMesh(enemyName: string, spawnPos: Vector3): Model?
 	return EnemyRigs.finalize(model, hrp, spawnPos)
 end
 
+-- ============================================================================
+-- Locomotion helpers — per-setan natural movement feel. SAFE & reusable: only
+-- set Humanoid HipHeight/JumpPower + a "SpeedMultiplier" attribute (read by
+-- EnemyAI when it sets WalkSpeed) + a "MoveStyle" string tag (for future client
+-- animation/SFX hooks). Pathing stays Humanoid:MoveTo (FSM-driven) — no custom
+-- physics, so the AI never breaks. Advanced behavior (BodyVelocity propulsion,
+-- segment wave, screen shake, custom anims) is intentionally deferred.
+-- ============================================================================
+
+type LocomotionOpts = {
+	speedMult: number?,
+	hipHeight: number?,
+	noJump: boolean?,
+}
+
+local function applyLocomotion(model: Model, style: string, opts: LocomotionOpts)
+	model:SetAttribute("MoveStyle", style)
+	model:SetAttribute("SpeedMultiplier", opts.speedMult or 1)
+	local hum = model:FindFirstChildOfClass("Humanoid")
+	if not hum then
+		return
+	end
+	if opts.hipHeight ~= nil then
+		hum.HipHeight = opts.hipHeight
+	end
+	if opts.noJump then
+		hum.JumpPower = 0
+		hum.JumpHeight = 0
+	end
+end
+
+-- FLOAT/GLIDE — hover offset, no foot contact, no jump. (Kuntilanak, SundelBolong)
+function EnemyRigs.applyFloatLocomotion(model: Model)
+	applyLocomotion(model, "Float", { speedMult = 0.9, hipHeight = 4, noJump = true })
+end
+
+-- HOP — keep jump ability, normal speed; visual hop is per-enemy (e.g. Pocong). (Pocong)
+function EnemyRigs.applyHopLocomotion(model: Model)
+	applyLocomotion(model, "Hop", { speedMult = 1.0 })
+end
+
+-- SHUFFLE — very slow hunched gait. (WeweGombel)
+function EnemyRigs.applyShuffleLocomotion(model: Model)
+	applyLocomotion(model, "Shuffle", { speedMult = 0.5, noJump = true })
+end
+
+-- STRIDE — slow heavy wide steps (size from Constants rigSize). (ButoIjo)
+function EnemyRigs.applyStrideLocomotion(model: Model)
+	applyLocomotion(model, "Stride", { speedMult = 0.7, noJump = true })
+end
+
+-- SLITHER — ground-hugging, no jump. (NagaKomodo)
+function EnemyRigs.applySlitherLocomotion(model: Model)
+	applyLocomotion(model, "Slither", { speedMult = 1.0, hipHeight = 0, noJump = true })
+end
+
+-- MEDITATION — mostly stationary slow float drift. (BuddhaWraith)
+function EnemyRigs.applyMeditationLocomotion(model: Model)
+	applyLocomotion(model, "Meditation", { speedMult = 0.3, hipHeight = 3, noJump = true })
+end
+
+-- STOMP — slow heavy walk. (Genderuwo)
+function EnemyRigs.applyStompLocomotion(model: Model)
+	applyLocomotion(model, "Stomp", { speedMult = 0.6, noJump = true })
+end
+
+-- SCURRY — fast erratic small creature. (Tuyul)
+function EnemyRigs.applyScurryLocomotion(model: Model)
+	applyLocomotion(model, "Scurry", { speedMult = 1.6, noJump = true })
+end
+
 return EnemyRigs

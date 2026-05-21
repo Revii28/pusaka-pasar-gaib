@@ -84,6 +84,7 @@ end
 function Genderuwo.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("Genderuwo", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyStompLocomotion(model)
 	EnemyAI.attach(model, {
 		tier = "Uncommon",
 		spawnPos = spawnPos,

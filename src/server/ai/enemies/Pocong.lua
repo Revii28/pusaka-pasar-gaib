@@ -87,6 +87,7 @@ end
 function Pocong.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("Pocong", spawnPos) or buildPrimitiveRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyHopLocomotion(model)
 	playHopLoop(model)
 	EnemyAI.attach(model, {
 		tier = "Common",

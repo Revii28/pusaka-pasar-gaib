@@ -108,6 +108,8 @@ local function tick(model: Model, state: EnemyAIState, config: EnemyAIConfig)
 	end
 
 	local origin = hrp.Position
+	-- Per-enemy locomotion speed scale (set by EnemyRigs.apply*Locomotion).
+	local speedMult = (model:GetAttribute("SpeedMultiplier") or 1) :: number
 	local nearestPlayer, nearestDist = EnemyAI.findNearestPlayer(origin, state.tier.detectRange * 2)
 
 	if state.current == STATE_IDLE then
@@ -119,7 +121,7 @@ local function tick(model: Model, state: EnemyAIState, config: EnemyAIConfig)
 	end
 
 	if state.current == STATE_PATROL then
-		hum.WalkSpeed = state.tier.walkSpeed
+		hum.WalkSpeed = state.tier.walkSpeed * speedMult
 		if nearestPlayer and nearestDist <= state.tier.detectRange then
 			state.current = STATE_CHASE
 			state.attackTarget = nearestPlayer
@@ -133,7 +135,7 @@ local function tick(model: Model, state: EnemyAIState, config: EnemyAIConfig)
 	end
 
 	if state.current == STATE_CHASE then
-		hum.WalkSpeed = state.tier.chaseSpeed
+		hum.WalkSpeed = state.tier.chaseSpeed * speedMult
 		if not nearestPlayer or nearestDist > state.tier.detectRange * 1.5 then
 			state.current = STATE_PATROL
 			state.attackTarget = nil
