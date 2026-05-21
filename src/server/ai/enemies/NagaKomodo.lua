@@ -210,6 +210,7 @@ end
 function NagaKomodo.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("NagaKomodo", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applySlitherLocomotion(model)
 	EnemyRigs.attachBossHealthBar(model, "Naga Komodo")
 	EnemyAI.attach(model, {
 		tier = "Legendary",

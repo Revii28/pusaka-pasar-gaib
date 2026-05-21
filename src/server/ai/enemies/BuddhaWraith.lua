@@ -198,6 +198,7 @@ end
 function BuddhaWraith.spawn(spawnPos: Vector3, parent: Instance): Model
 	local model = EnemyRigs.tryCloneMesh("BuddhaWraith", spawnPos) or buildRig(spawnPos)
 	model.Parent = parent
+	EnemyRigs.applyMeditationLocomotion(model)
 	EnemyRigs.attachBossHealthBar(model, "Buddha Wraith")
 	EnemyAI.attach(model, {
 		tier = "Legendary",
