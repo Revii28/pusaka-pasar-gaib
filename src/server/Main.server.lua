@@ -31,6 +31,11 @@ local LootService = require(servicesFolder:WaitForChild("LootService"))
 local GauntletService =
 	require(serverFolder:WaitForChild("gauntlet"):WaitForChild("GauntletService"))
 local ParkourGuard = require(serverFolder:WaitForChild("anti_cheese"):WaitForChild("ParkourGuard"))
+local InventoryService =
+	require(serverFolder:WaitForChild("inventory"):WaitForChild("InventoryService"))
+local PickupService = require(serverFolder:WaitForChild("inventory"):WaitForChild("PickupService"))
+local PlayerDataService =
+	require(serverFolder:WaitForChild("data"):WaitForChild("PlayerDataService"))
 
 local function safeRun(label: string, fn: () -> any, successMsg: string?): any?
 	local ok, result = pcall(fn)
@@ -86,6 +91,11 @@ safeRun("LootService.init", LootService.init, "[Main] Loot system ready.")
 
 print("[Main] Initializing gauntlet system...")
 safeRun("GauntletService.init", GauntletService.init, "[Main] Gauntlet system ready.")
+
+print("[Main] Initializing inventory + persistence...")
+safeRun("InventoryService.init", InventoryService.init, "[Main] Inventory service ready.")
+safeRun("PlayerDataService.init", PlayerDataService.init, "[Main] Player data service ready.")
+safeRun("PickupService.start", PickupService.start, "[Main] Pickup service ready.")
 
 print("[Main] Spawning enemies across 12 maps...")
 safeRun(
