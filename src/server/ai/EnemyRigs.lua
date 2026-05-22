@@ -152,12 +152,27 @@ local function getMeshIds(): { [string]: string }
 	if _meshIds == nil then
 		local shared = ReplicatedStorage:FindFirstChild("Shared")
 		local mod = if shared then shared:FindFirstChild("EnemyMeshIds") else nil
+		print(
+			`[EnemyRigs] getMeshIds first call: Shared={tostring(shared ~= nil)} EnemyMeshIds={tostring(
+				mod ~= nil
+			)}`
+		)
 		if mod and mod:IsA("ModuleScript") then
 			local ok, result = pcall(require, mod)
-			_meshIds = (
+			if not ok then
+				warn(`[EnemyRigs] require EnemyMeshIds FAILED: {tostring(result)}`)
+			end
+			local tbl = (
 				if ok and type(result) == "table" then result else {}
 			) :: { [string]: string }
+			local count = 0
+			for _ in pairs(tbl) do
+				count += 1
+			end
+			print(`[EnemyRigs] EnemyMeshIds module loaded: {count} entries`)
+			_meshIds = tbl
 		else
+			warn("[EnemyRigs] Shared.EnemyMeshIds NOT FOUND — all setan will use primitive rig")
 			_meshIds = {}
 		end
 	end
@@ -170,28 +185,33 @@ end
 function EnemyRigs.loadMeshTemplate(enemyName: string): Model?
 	local cached = _meshTemplateCache[enemyName]
 	if cached then
+		print(`[EnemyRigs] loadMeshTemplate({enemyName}): cache HIT`)
 		return cached
 	end
 	if _meshLoadFailed[enemyName] then
+		-- previously-failed (silent on repeat to avoid log spam each spawn)
 		return nil
 	end
 	local ref = getMeshIds()[enemyName]
 	if not ref then
+		warn(`[EnemyRigs] {enemyName}: no entry in EnemyMeshIds -> primitive fallback`)
 		_meshLoadFailed[enemyName] = true
 		return nil
 	end
 	local digits = string.match(ref, "%d+")
 	local assetId = if digits then tonumber(digits) else nil
 	if not assetId then
+		warn(`[EnemyRigs] {enemyName}: cannot parse assetId from '{ref}' -> primitive fallback`)
 		_meshLoadFailed[enemyName] = true
 		return nil
 	end
+	print(`[EnemyRigs] {enemyName}: InsertService:LoadAsset({assetId}) starting...`)
 	local ok, loaded = pcall(function()
 		return InsertService:LoadAsset(assetId)
 	end)
 	if not ok or typeof(loaded) ~= "Instance" then
 		warn(
-			`[EnemyRigs] LoadAsset failed for {enemyName} (rbxassetid://{assetId}): {tostring(
+			`[EnemyRigs] LoadAsset FAILED for {enemyName} (rbxassetid://{assetId}): {tostring(
 				loaded
 			)}`
 		)
@@ -199,6 +219,20 @@ function EnemyRigs.loadMeshTemplate(enemyName: string): Model?
 		return nil
 	end
 	local container = loaded :: Model
+	-- Summarize structure so we can see whether MeshParts are actually inside.
+	local descCount, basePartCount, meshPartCount = 0, 0, 0
+	for _, d in ipairs(container:GetDescendants()) do
+		descCount += 1
+		if d:IsA("BasePart") then
+			basePartCount += 1
+		end
+		if d:IsA("MeshPart") then
+			meshPartCount += 1
+		end
+	end
+	print(
+		`[EnemyRigs] {enemyName}: LoadAsset OK root={(loaded :: Instance).ClassName} descendants={descCount} basePart={basePartCount} meshPart={meshPartCount}`
+	)
 	_meshTemplateCache[enemyName] = container
 	return container
 end
@@ -209,6 +243,7 @@ end
 function EnemyRigs.tryCloneMesh(enemyName: string, spawnPos: Vector3): Model?
 	local template = EnemyRigs.loadMeshTemplate(enemyName)
 	if not template then
+		print(`[EnemyRigs] tryCloneMesh({enemyName}): template nil -> primitive fallback`)
 		return nil
 	end
 	local container = template:Clone()
@@ -220,6 +255,18 @@ function EnemyRigs.tryCloneMesh(enemyName: string, spawnPos: Vector3): Model?
 		end
 	end
 	if #parts == 0 then
+		-- Diagnostic: list descendant ClassNames so we know what came inside.
+		local seen: { [string]: number } = {}
+		for _, d in ipairs(container:GetDescendants()) do
+			seen[d.ClassName] = (seen[d.ClassName] or 0) + 1
+		end
+		local summary = ""
+		for k, v in pairs(seen) do
+			summary ..= `{k}={v} `
+		end
+		warn(
+			`[EnemyRigs] tryCloneMesh({enemyName}): cloned container has 0 BaseParts. Descendants: {summary}-> primitive fallback`
+		)
 		container:Destroy()
 		return nil
 	end
@@ -245,6 +292,7 @@ function EnemyRigs.tryCloneMesh(enemyName: string, spawnPos: Vector3): Model?
 	container:Destroy()
 
 	EnemyRigs.makeHumanoid(model, enemyName)
+	print(`[EnemyRigs] tryCloneMesh({enemyName}) SUCCESS: welded {#parts} parts to rig`)
 	return EnemyRigs.finalize(model, hrp, spawnPos)
 end
 
