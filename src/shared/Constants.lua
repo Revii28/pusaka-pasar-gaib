@@ -336,5 +336,28 @@ Constants.MAPS = {
 } :: { MapData }
 table.freeze(Constants.MAPS)
 
+-- Tier color palettes (single source of truth). ITEM tiers (LootService drop
+-- glow) and MAP tiers (PortalHub portal glow) are SEPARATE domains with
+-- different key sets + shades — intentionally NOT merged into one table.
+Constants.ITEM_TIER_COLORS = {
+	Consumable = Color3.fromRGB(180, 180, 180),
+	Common = Color3.fromRGB(220, 220, 220),
+	Uncommon = Color3.fromRGB(60, 210, 80),
+	Rare = Color3.fromRGB(60, 120, 240),
+	Epic = Color3.fromRGB(170, 70, 240),
+	Legendary = Color3.fromRGB(255, 190, 60),
+} :: { [string]: Color3 }
+table.freeze(Constants.ITEM_TIER_COLORS)
+
+Constants.MAP_TIER_COLORS = {
+	Starter = Color3.fromRGB(240, 240, 240),
+	Common = Color3.fromRGB(160, 160, 160),
+	Uncommon = Color3.fromRGB(80, 200, 90),
+	Rare = Color3.fromRGB(80, 130, 230),
+	Epic = Color3.fromRGB(180, 80, 230),
+	Legendary = Color3.fromRGB(255, 200, 60),
+} :: { [string]: Color3 }
+table.freeze(Constants.MAP_TIER_COLORS)
+
 table.freeze(Constants)
 return Constants

@@ -29,15 +29,6 @@ local DROP_TRANSPARENCY = 0.2
 local FLOAT_AMPLITUDE = 1
 local FLOAT_PERIOD = 2
 
-local TIER_COLORS: { [string]: Color3 } = {
-	Consumable = Color3.fromRGB(180, 180, 180),
-	Common = Color3.fromRGB(220, 220, 220),
-	Uncommon = Color3.fromRGB(60, 210, 80),
-	Rare = Color3.fromRGB(60, 120, 240),
-	Epic = Color3.fromRGB(170, 70, 240),
-	Legendary = Color3.fromRGB(255, 190, 60),
-}
-
 local function getOrCreateDropsFolder(): Folder
 	local existing = workspace:FindFirstChild(DROPS_FOLDER_NAME)
 	if existing and existing:IsA("Folder") then
@@ -50,7 +41,7 @@ local function getOrCreateDropsFolder(): Folder
 end
 
 local function spawnDrop(itemId: string, item: Items.ItemDef, position: Vector3)
-	local color = TIER_COLORS[item.tier] or Color3.new(1, 1, 1)
+	local color = Constants.ITEM_TIER_COLORS[item.tier] or Color3.new(1, 1, 1)
 
 	local drop = Instance.new("Part")
 	drop.Name = "PusakaDrop_" .. itemId

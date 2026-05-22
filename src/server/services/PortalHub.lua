@@ -36,20 +36,11 @@ local STONE_COLOR = Color3.fromRGB(70, 65, 65)
 local SIGN_BG_COLOR = Color3.fromRGB(70, 40, 18)
 local SIGN_TEXT_COLOR = Color3.fromRGB(220, 190, 110)
 
-local TIER_COLORS: { [string]: Color3 } = {
-	Starter = Color3.fromRGB(240, 240, 240),
-	Common = Color3.fromRGB(160, 160, 160),
-	Uncommon = Color3.fromRGB(80, 200, 90),
-	Rare = Color3.fromRGB(80, 130, 230),
-	Epic = Color3.fromRGB(180, 80, 230),
-	Legendary = Color3.fromRGB(255, 200, 60),
-}
-
 local function buildPortal(mapData: Constants.MapData, baseCFrame: CFrame, parent: Instance)
 	local model = Instance.new("Model")
 	model.Name = ("Portal_%s"):format(mapData.id)
 
-	local tierColor = TIER_COLORS[mapData.tier] or Color3.fromRGB(255, 255, 255)
+	local tierColor = Constants.MAP_TIER_COLORS[mapData.tier] or Color3.fromRGB(255, 255, 255)
 
 	local pad = Instance.new("Part")
 	pad.Name = "Pad"
