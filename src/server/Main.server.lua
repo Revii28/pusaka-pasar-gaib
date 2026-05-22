@@ -30,6 +30,7 @@ local EnemySpawner = require(serverFolder:WaitForChild("ai"):WaitForChild("Enemy
 local LootService = require(servicesFolder:WaitForChild("LootService"))
 local GauntletService =
 	require(serverFolder:WaitForChild("gauntlet"):WaitForChild("GauntletService"))
+local ParkourGuard = require(serverFolder:WaitForChild("anti_cheese"):WaitForChild("ParkourGuard"))
 
 local function safeRun(label: string, fn: () -> any, successMsg: string?): any?
 	local ok, result = pcall(fn)
@@ -101,6 +102,8 @@ local function onPlayerAdded(player: Player)
 		local hum = char:WaitForChild("Humanoid") :: Humanoid
 		hum.MaxHealth = Constants.COMBAT.playerMaxHealth
 		hum.Health = Constants.COMBAT.playerMaxHealth
+		char:WaitForChild("HumanoidRootPart")
+		ParkourGuard.start(player)
 	end)
 end
 

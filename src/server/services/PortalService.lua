@@ -41,6 +41,11 @@ function PortalService.teleportToMap(player: Player, mapId: string)
 		return
 	end
 
+	-- Whitelist this legit teleport so ParkourGuard doesn't flag it.
+	local ParkourGuard =
+		require(script.Parent.Parent:WaitForChild("anti_cheese"):WaitForChild("ParkourGuard"))
+	ParkourGuard.notifyLegitTeleport(player, 2.0)
+
 	local ok, err = pcall(function()
 		char:PivotTo(CFrame.new(mapData.spawnPos))
 	end)
@@ -63,6 +68,9 @@ function PortalService.teleportToHub(player: Player)
 	if not char then
 		return
 	end
+	local ParkourGuard =
+		require(script.Parent.Parent:WaitForChild("anti_cheese"):WaitForChild("ParkourGuard"))
+	ParkourGuard.notifyLegitTeleport(player, 2.0)
 	local ok, err = pcall(function()
 		char:PivotTo(HUB_RESPAWN_CFRAME)
 	end)
