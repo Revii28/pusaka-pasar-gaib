@@ -212,4 +212,46 @@ Setelah MVP jalan: tambah crafting altar, kios sewa, trade tax 5%, pity counter,
 
 ---
 
+## Enemy System & Asset Pipeline (updated 2026-05)
+
+### Enemy spawn pattern (`src/server/ai/enemies/<Name>.lua`)
+```lua
+local model = EnemyRigs.tryCloneMesh("<Name>", spawnPos) or buildRig(spawnPos)
+model.Parent = parent
+EnemyRigs.applyFloatLocomotion(model) -- or Hop/Shuffle/Stride/Slither/Meditation/Stomp/Scurry
+EnemyAI.attach(model, { tier = "...", spawnPos = spawnPos, patrolRadius = N })
+```
+- `EnemyRigs.tryCloneMesh(name, spawnPos)`: server-side `InsertService:LoadAsset` of
+  the mesh ID from `EnemyMeshIds`, cached + welded to a Humanoid rig. Returns nil on
+  miss → per-enemy primitive `buildRig` fallback. Model attribute `RigVariant` =
+  `"Mesh"` | `"Primitive"`.
+- **Locomotion:** `EnemyRigs.apply*Locomotion(model)` sets `HipHeight`/`JumpPower` + a
+  `SpeedMultiplier` attribute + a `MoveStyle` tag. `EnemyAI` multiplies WalkSpeed by
+  `SpeedMultiplier`. No custom physics — pathing stays `Humanoid:MoveTo`.
+- **Combat:** `EnemyAI` FSM (IDLE→PATROL→CHASE→ATTACK→DEATH); melee via
+  `Humanoid:TakeDamage` or per-enemy `onAttack`. Advanced patterns (projectile/AoE/
+  grab/stun) = backlog → `docs/combat_movement_audit.md`.
+
+### Asset pipeline (Sketchfab → Studio)
+1. Download → `sketchfab-downloads/<Name>/` (gitignored).
+2. `scripts/normalize_sketchfab.py` (Blender headless `_normalize_blender.py`): embed
+   textures, decimate >15k tri, downscale >2048 → `assets/enemies/<Name>.fbx`
+   (**Git LFS**) + `_preview.png`.
+3. **Studio "Save to Roblox"** manual per setan → paste asset ID → `src/shared/EnemyMeshIds.lua`.
+4. ⛔ **Open Cloud API PAUSED** — account moderation pending (`docs/banding_appeal.md`).
+
+### Files NOT to touch
+- `.env` (Roblox API key — gitignored secret)
+- `scripts/reupload_setan_assets.py` (Open Cloud — paused, moderation lock)
+- `CREDITS.md` attribution (user fills manually)
+
+### Current state snapshot (2026-05-22)
+- `assets/enemies/`: **11 FBX** (Leak removed — gore moderation) via **Git LFS** + 11 previews.
+- Moderation (`docs/asset_moderation_audit.md`): 7 PROCEED, 4 SKIP (Tuyul/SundelBolong/
+  WeweGombel/BuddhaWraith), Leak deleted. Studio import of 7 PROCEED in progress.
+- Tier colors centralized in `Constants.ITEM_TIER_COLORS` + `Constants.MAP_TIER_COLORS`.
+- Lint: stylua + selene clean.
+
+---
+
 *Maintained by: Revi Rifaldi. Auto-loaded oleh Claude Code tiap session.*
