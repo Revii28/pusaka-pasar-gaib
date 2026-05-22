@@ -1,24 +1,27 @@
 -- Enemy mesh asset IDs (rbxassetid://). Consumed via InsertService:LoadAsset
--- in EnemyRigs.tryCloneMesh (server-side, cached). Missing entry => the enemy
--- module falls back to its primitive buildRig.
+-- in EnemyRigs.tryCloneMesh (server-side, cached). A missing/absent entry =>
+-- the enemy module falls back to its primitive buildRig.
 --
--- Open Cloud upload path is PAUSED (account moderation). IDs are wired
--- manually after the user does Studio "Save to Roblox" per setan.
---   * Leak REMOVED — gore content confirmed moderation culprit; Roblox will
---     delete the asset. Leak.lua now always uses its primitive rig.
---   * Tuyul / SundelBolong / WeweGombel / BuddhaWraith flagged in
---     docs/asset_moderation_audit.md (lean-SKIP). Their current IDs still
---     point to the SAFE primitive uploads from the first batch.
+-- Wired manually after Open Cloud upload (Phase 8, 2026-05-22) via
+-- scripts/upload_enemies.py. Account re-activated; 7 PROCEED uploaded fresh.
+-- Do NOT regenerate via upload_enemy_assets.py (would clobber this curation).
+--
+-- 4 SKIP + Leak intentionally have NO mesh entry (moderation audit:
+-- docs/asset_moderation_audit.md) → they spawn via their primitive rig.
 return {
-	Pocong = "rbxassetid://107709794090664",
-	Kuntilanak = "rbxassetid://111406860449904",
-	Genderuwo = "rbxassetid://139769722361283",
-	Tuyul = "rbxassetid://95757886711287",
-	SundelBolong = "rbxassetid://125519017691944",
-	Banaspati = "rbxassetid://104731812028934",
-	WeweGombel = "rbxassetid://111119714324258",
-	ButoIjo = "rbxassetid://125648166362876",
-	SetanPasar = "rbxassetid://117928888067153",
-	NagaKomodo = "rbxassetid://105785756477318",
-	BuddhaWraith = "rbxassetid://111346628317618",
+	-- PROCEED — realistic Sketchfab meshes (Open Cloud, 2026-05-22):
+	Pocong = "rbxassetid://76777567365120",
+	Kuntilanak = "rbxassetid://109481388805656",
+	Genderuwo = "rbxassetid://117007032460463",
+	Banaspati = "rbxassetid://103503523067471",
+	ButoIjo = "rbxassetid://135788034749287",
+	SetanPasar = "rbxassetid://87806775240990",
+	NagaKomodo = "rbxassetid://129095506826623",
+
+	-- SKIP (no mesh → primitive fallback rig):
+	--   Tuyul        — child-safety filter risk
+	--   SundelBolong — blood-dress appearance
+	--   WeweGombel   — potential nudity
+	--   BuddhaWraith — sacred religious figure
+	-- Leak — PERMANENT SKIP (gore; FBX removed)
 }
