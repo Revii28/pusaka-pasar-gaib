@@ -558,6 +558,78 @@ function GhostSpawner.spawnAll(vendorList: { VendorInfo }): { Model }
 		ghost.Parent = workspace
 		table.insert(spawned, ghost)
 		print(("[GhostSpawner] %s spawned."):format(ghostType))
+
+		-- Phase 8.5 Step 0.5 — scope-locked mesh attach for Mbok Inem's Pocong
+		-- only. The cosmetic ghost rig (buildPocong) is purely anchored primitives;
+		-- here we load the uploaded Pocong mesh and overlay it on Body so the
+		-- companion reads as the realistic Sketchfab Pocong instead of a white box.
+		-- Body/Head primitives stay alive (aura/light/trail/hop tween/name tag) but
+		-- go transparent. NO other companions touched — separate briefing.
+		if vendor.name == "Mbok Inem" and ghostType == "Pocong" then
+			local InsertService = game:GetService("InsertService")
+			local POCONG_MESH_ASSET_ID = 76777567365120
+			local loadOk, asset = pcall(function()
+				return InsertService:LoadAsset(POCONG_MESH_ASSET_ID)
+			end)
+			if loadOk and asset then
+				local meshSrc: MeshPart? = nil
+				for _, d in ipairs(asset:GetDescendants()) do
+					if d:IsA("MeshPart") then
+						meshSrc = d
+						break
+					end
+				end
+				local body = ghost:FindFirstChild("Body") :: BasePart?
+				local head = ghost:FindFirstChild("Head") :: BasePart?
+				if meshSrc and body then
+					local mesh = meshSrc:Clone()
+					mesh.Anchored = true
+					mesh.CanCollide = false
+					mesh.Massless = true
+					mesh.Size = Vector3.new(3, 7, 3)
+					mesh.CFrame = body.CFrame
+					mesh.Name = "PocongMesh"
+					mesh.Parent = ghost
+					body.Transparency = 1
+					if head then
+						head.Transparency = 1
+					end
+					-- Mirror the existing buildPocong hop tween so the mesh bobs.
+					local hopInfo = TweenInfo.new(
+						3,
+						Enum.EasingStyle.Quad,
+						Enum.EasingDirection.InOut,
+						-1,
+						true
+					)
+					TweenService:Create(mesh, hopInfo, {
+						CFrame = mesh.CFrame + Vector3.new(0, 5, 0),
+					}):Play()
+					print(
+						("[GhostSpawner-Mesh] Pocong companion (Mbok Inem): mesh attached, parent=%s pos=%s"):format(
+							mesh.Parent and mesh.Parent:GetFullName() or "nil",
+							tostring(mesh.Position)
+						)
+					)
+				else
+					warn(
+						("[GhostSpawner-Mesh] Pocong companion: meshSrc=%s body=%s (asset descendants=%d)"):format(
+							tostring(meshSrc ~= nil),
+							tostring(body ~= nil),
+							#asset:GetDescendants()
+						)
+					)
+				end
+				asset:Destroy()
+			else
+				warn(
+					("[GhostSpawner-Mesh] LoadAsset Pocong (%d) FAILED: %s"):format(
+						POCONG_MESH_ASSET_ID,
+						tostring(asset)
+					)
+				)
+			end
+		end
 	end
 	return spawned
 end
