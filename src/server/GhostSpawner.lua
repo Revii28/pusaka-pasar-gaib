@@ -18,7 +18,6 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local TweenService = game:GetService("TweenService")
 
@@ -29,7 +28,10 @@ local MapHelpers = require(
 
 local GhostSpawner = {}
 
-type GhostType = "Pocong" | "Genderuwo" | "Kuntilanak" | "Leak"
+-- NOTE: "Leak" entity removed (Phase 8.5 Step 0.6) — asset permanently rejected
+-- by Roblox moderation. Bandar Robux companion replaced with SetanPasar
+-- (thematic match: market vendor → market demon).
+type GhostType = "Pocong" | "Genderuwo" | "Kuntilanak" | "SetanPasar"
 
 type VendorInfo = {
 	name: string,
@@ -45,7 +47,7 @@ local NPC_TO_GHOST: { [string]: GhostType } = {
 	["Mbok Inem"] = "Pocong",
 	["Pak Tukijo"] = "Genderuwo",
 	["Nyai Sumi"] = "Kuntilanak",
-	["Bandar Robux"] = "Leak",
+	["Bandar Robux"] = "SetanPasar",
 }
 
 local function makePart(props: {
@@ -211,7 +213,8 @@ local function buildPocong(base: Vector3): Model
 		transparency = 0.7,
 		speed = 1,
 	})
-	attachLight(body, Color3.fromRGB(255, 255, 255), 3, 8)
+	-- Aura mencekam (Phase 8.5 Step 0.6 polish 5.3) — dim pale purple-blue.
+	attachLight(body, Color3.fromRGB(60, 40, 130), 0.3, 5)
 	attachTrail(body, Color3.fromRGB(255, 255, 255), 1)
 
 	local hopInfo = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true)
@@ -306,7 +309,8 @@ local function buildGenderuwo(base: Vector3): Model
 		speed = 1.5,
 		lightEmission = 0.8,
 	})
-	attachLight(torso, Color3.fromRGB(255, 50, 0), 6, 10)
+	-- Aura mencekam (Phase 8.5 Step 0.6 polish 5.3) — dim dark red.
+	attachLight(torso, Color3.fromRGB(100, 20, 30), 0.3, 5)
 
 	local breathInfo =
 		TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
@@ -398,7 +402,8 @@ local function buildKuntilanak(base: Vector3): Model
 		speed = 0.5,
 		lightEmission = 0.5,
 	})
-	attachLight(body, Color3.fromRGB(255, 220, 230), 4, 8)
+	-- Aura mencekam (Phase 8.5 Step 0.6 polish 5.3) — dim cold purple.
+	attachLight(body, Color3.fromRGB(80, 30, 120), 0.3, 5)
 	attachTrail(gown, Color3.fromRGB(255, 230, 240), 1.5)
 
 	applyBob(body, 1, 2.5, Enum.EasingStyle.Sine)
@@ -410,116 +415,190 @@ local function buildKuntilanak(base: Vector3): Model
 	return model
 end
 
-local function buildLeak(base: Vector3): Model
+-- buildLeak REMOVED (Phase 8.5 Step 0.6) — Leak asset permanently rejected by
+-- Roblox moderation; Bandar Robux companion now uses SetanPasar (thematic
+-- match: pasar/market vendor → market demon). See briefing Step 0.6.
+local function buildSetanPasar(base: Vector3): Model
 	local model = Instance.new("Model")
-	model.Name = "Leak"
+	model.Name = "SetanPasar"
 
-	local hoverY = 5
-	local torsoCenter = base + Vector3.new(0, hoverY, 0)
+	local hoverY = 6
+	local bodyCenter = base + Vector3.new(0, hoverY, 0)
 
-	local torso = makePart({
-		name = "TorsoLower",
-		size = Vector3.new(3, 4, 3),
-		position = torsoCenter,
-		material = Enum.Material.Glass,
-		color = Color3.fromRGB(140, 30, 30),
-		transparency = 0.35,
+	local body = makePart({
+		name = "Body",
+		size = Vector3.new(3, 6, 3),
+		position = bodyCenter,
+		material = Enum.Material.Slate,
+		color = Color3.fromRGB(40, 55, 35),
+		transparency = 0.3,
 		parent = model,
 	})
 
-	local headBase = torsoCenter + Vector3.new(0, 4, 0)
 	local head = makePart({
 		name = "Head",
-		size = Vector3.new(2.5, 2.5, 2.5),
-		position = headBase,
+		size = Vector3.new(1.8, 1.8, 1.8),
+		position = bodyCenter + Vector3.new(0, 3.8, 0),
 		shape = Enum.PartType.Ball,
-		material = Enum.Material.Glass,
-		color = Color3.fromRGB(140, 30, 30),
-		transparency = 0.35,
+		material = Enum.Material.Slate,
+		color = Color3.fromRGB(40, 55, 35),
+		transparency = 0.3,
 		parent = model,
 	})
 
-	local arms: { Part } = {}
-	for i, sideX in ipairs({ -2.5, 2.5 }) do
-		local arm = makePart({
-			name = ("Arm%d"):format(i),
-			size = Vector3.new(1, 3, 1),
-			position = torsoCenter + Vector3.new(sideX, 0.5, 0),
-			material = Enum.Material.Glass,
-			color = Color3.fromRGB(140, 30, 30),
-			transparency = 0.35,
-			parent = model,
-		})
-		table.insert(arms, arm)
-	end
-
-	for i = 1, 4 do
-		local angle = (i / 4) * 2 * math.pi
-		local organ = makePart({
-			name = ("Organ%d"):format(i),
-			size = Vector3.new(0.4, 3, 0.4),
-			position = headBase + Vector3.new(math.cos(angle) * 0.6, -2, math.sin(angle) * 0.6),
-			material = Enum.Material.Neon,
-			color = Color3.fromRGB(180, 20, 20),
-			transparency = 0.5,
-			parent = model,
-		})
-		attachLight(organ, Color3.fromRGB(255, 30, 30), 1, 3)
-	end
-
-	makePart({
-		name = "Tongue",
-		size = Vector3.new(0.5, 0.5, 2),
-		position = headBase + Vector3.new(0, -0.4, -1.5),
-		material = Enum.Material.Neon,
-		color = Color3.fromRGB(200, 50, 50),
-		parent = model,
-	})
-
-	attachAura(torso, {
-		color = Color3.fromRGB(180, 20, 20),
+	attachAura(body, {
+		color = Color3.fromRGB(60, 120, 50),
 		lifetimeMin = 2,
 		lifetimeMax = 2,
-		rate = 12,
-		sizeMin = 0.3,
-		sizeMax = 1,
-		transparency = 0.5,
-		speed = 2,
-		lightEmission = 1,
+		rate = 5,
+		sizeMin = 1,
+		sizeMax = 2,
+		transparency = 0.7,
+		speed = 1,
 	})
-	attachLight(torso, Color3.fromRGB(255, 20, 20), 8, 14)
-	attachTrail(head, Color3.fromRGB(255, 30, 30), 1.2)
+	-- Aura mencekam (Phase 8.5 Step 0.6 polish 5.3) — sickly market-demon green.
+	attachLight(body, Color3.fromRGB(50, 100, 40), 0.3, 5)
+	attachTrail(body, Color3.fromRGB(60, 120, 50), 1)
 
-	local orbitConnection: RBXScriptConnection
-	local t = 0
-	local armT = 0
-	orbitConnection = RunService.Heartbeat:Connect(function(dt: number)
-		if not head.Parent then
-			orbitConnection:Disconnect()
-			return
-		end
-		t += dt * 0.8
-		armT += dt
-		head.Position = headBase
-			+ Vector3.new(math.sin(t) * 2, math.sin(t * 2) * 0.5, math.cos(t) * 1.5)
-
-		for i, arm in ipairs(arms) do
-			local phase = (i - 1) * math.pi
-			local sideX = (i == 1) and -2.5 or 2.5
-			arm.Position = torsoCenter + Vector3.new(sideX + math.sin(armT + phase) * 0.3, 0.5, 0)
-		end
-	end)
+	local hopInfo = TweenInfo.new(3, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true)
+	TweenService:Create(body, hopInfo, { Position = bodyCenter + Vector3.new(0, 0.8, 0) }):Play()
+	TweenService:Create(head, hopInfo, { Position = bodyCenter + Vector3.new(0, 4.6, 0) }):Play()
 
 	model.PrimaryPart = head
-	attachNameTag(head, "Leak", 2)
+	attachNameTag(head, "SetanPasar", 2)
 	return model
+end
+
+-- ---------------------------------------------------------------------------
+-- Mesh overlay (Phase 8.5 Step 0.6) — load the uploaded Open Cloud mesh and
+-- overlay it on the cosmetic anchored rig. Primitive Body/Head go transparent
+-- (aura/light/trail/hop-tween/nametag still emit on invisible parts). Mesh
+-- faces vendor.lookDirection (polish 5.1) and is lifted so its bottom never
+-- sinks below ground (polish 5.2). Shared helper avoids ~70 lines × 4 dup.
+-- ---------------------------------------------------------------------------
+type MeshOverlayConfig = {
+	assetId: number,
+	size: Vector3,
+	hopAmplitude: number,
+	hopDuration: number,
+	bodyPartName: string,
+}
+
+local MESH_CONFIG: { [GhostType]: MeshOverlayConfig } = {
+	Pocong = {
+		assetId = 76777567365120,
+		size = Vector3.new(3, 7, 3),
+		hopAmplitude = 5,
+		hopDuration = 3,
+		bodyPartName = "Body",
+	},
+	Genderuwo = {
+		assetId = 117007032460463,
+		size = Vector3.new(5, 8, 4),
+		hopAmplitude = 0.5,
+		hopDuration = 2,
+		bodyPartName = "Torso",
+	},
+	Kuntilanak = {
+		assetId = 109481388805656,
+		size = Vector3.new(2, 6, 2),
+		hopAmplitude = 1,
+		hopDuration = 2.5,
+		bodyPartName = "BodyUpper",
+	},
+	SetanPasar = {
+		assetId = 87806775240990,
+		size = Vector3.new(3, 6, 3),
+		hopAmplitude = 0.8,
+		hopDuration = 3,
+		bodyPartName = "Body",
+	},
+}
+
+local function attachMeshOverlay(ghost: Model, vendor: VendorInfo, ghostType: GhostType)
+	local cfg = MESH_CONFIG[ghostType]
+	if not cfg then
+		return
+	end
+	local InsertService = game:GetService("InsertService")
+	local loadOk, assetOrErr = pcall(function()
+		return InsertService:LoadAsset(cfg.assetId)
+	end)
+	if not loadOk or typeof(assetOrErr) ~= "Instance" then
+		warn(
+			("[GhostSpawner-Mesh] %s LoadAsset (%d) FAILED: %s"):format(
+				ghostType,
+				cfg.assetId,
+				tostring(assetOrErr)
+			)
+		)
+		return
+	end
+	local container = assetOrErr :: Instance
+	local meshSrc: MeshPart? = nil
+	for _, d in ipairs(container:GetDescendants()) do
+		if d:IsA("MeshPart") then
+			meshSrc = d
+			break
+		end
+	end
+	local body = ghost:FindFirstChild(cfg.bodyPartName) :: BasePart?
+	local head = ghost:FindFirstChild("Head") :: BasePart?
+	if not (meshSrc and body) then
+		warn(
+			("[GhostSpawner-Mesh] %s: meshSrc=%s body=%s (descendants=%d)"):format(
+				ghostType,
+				tostring(meshSrc ~= nil),
+				tostring(body ~= nil),
+				#container:GetDescendants()
+			)
+		)
+		container:Destroy()
+		return
+	end
+	local mesh = (meshSrc :: MeshPart):Clone()
+	mesh.Anchored = true
+	mesh.CanCollide = false
+	mesh.Massless = true
+	mesh.Size = cfg.size
+	mesh.Name = ghostType .. "Mesh"
+	-- Polish 5.2 (no sinking): defensive Y floor so the mesh bottom can never
+	-- clip below the vendor's ground level (vendor.position.Y as proxy).
+	local bodyPos = body.Position
+	local minY = vendor.position.Y + cfg.size.Y / 2 + 0.1
+	local liftedY = math.max(bodyPos.Y, minY)
+	local meshPos = Vector3.new(bodyPos.X, liftedY, bodyPos.Z)
+	-- Polish 5.1 (face forward): orient mesh along vendor.lookDirection so the
+	-- companion menghadap depan tenant (same direction as the NPC vendor).
+	mesh.CFrame = CFrame.new(meshPos, meshPos + vendor.lookDirection)
+	mesh.Parent = ghost
+
+	body.Transparency = 1
+	if head then
+		head.Transparency = 1
+	end
+
+	local hopInfo =
+		TweenInfo.new(cfg.hopDuration, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut, -1, true)
+	TweenService:Create(mesh, hopInfo, {
+		CFrame = mesh.CFrame + Vector3.new(0, cfg.hopAmplitude, 0),
+	}):Play()
+	print(
+		("[GhostSpawner-Mesh] %s companion (%s): mesh attached, parent=%s pos=%s"):format(
+			ghostType,
+			vendor.name,
+			mesh.Parent and mesh.Parent:GetFullName() or "nil",
+			tostring(mesh.Position)
+		)
+	)
+	container:Destroy()
 end
 
 local BUILDERS: { [GhostType]: (Vector3) -> Model } = {
 	Pocong = buildPocong,
 	Genderuwo = buildGenderuwo,
 	Kuntilanak = buildKuntilanak,
-	Leak = buildLeak,
+	SetanPasar = buildSetanPasar,
 }
 
 function GhostSpawner.spawnAll(vendorList: { VendorInfo }): { Model }
@@ -559,77 +638,11 @@ function GhostSpawner.spawnAll(vendorList: { VendorInfo }): { Model }
 		table.insert(spawned, ghost)
 		print(("[GhostSpawner] %s spawned."):format(ghostType))
 
-		-- Phase 8.5 Step 0.5 — scope-locked mesh attach for Mbok Inem's Pocong
-		-- only. The cosmetic ghost rig (buildPocong) is purely anchored primitives;
-		-- here we load the uploaded Pocong mesh and overlay it on Body so the
-		-- companion reads as the realistic Sketchfab Pocong instead of a white box.
-		-- Body/Head primitives stay alive (aura/light/trail/hop tween/name tag) but
-		-- go transparent. NO other companions touched — separate briefing.
-		if vendor.name == "Mbok Inem" and ghostType == "Pocong" then
-			local InsertService = game:GetService("InsertService")
-			local POCONG_MESH_ASSET_ID = 76777567365120
-			local loadOk, asset = pcall(function()
-				return InsertService:LoadAsset(POCONG_MESH_ASSET_ID)
-			end)
-			if loadOk and asset then
-				local meshSrc: MeshPart? = nil
-				for _, d in ipairs(asset:GetDescendants()) do
-					if d:IsA("MeshPart") then
-						meshSrc = d
-						break
-					end
-				end
-				local body = ghost:FindFirstChild("Body") :: BasePart?
-				local head = ghost:FindFirstChild("Head") :: BasePart?
-				if meshSrc and body then
-					local mesh = meshSrc:Clone()
-					mesh.Anchored = true
-					mesh.CanCollide = false
-					mesh.Massless = true
-					mesh.Size = Vector3.new(3, 7, 3)
-					mesh.CFrame = body.CFrame
-					mesh.Name = "PocongMesh"
-					mesh.Parent = ghost
-					body.Transparency = 1
-					if head then
-						head.Transparency = 1
-					end
-					-- Mirror the existing buildPocong hop tween so the mesh bobs.
-					local hopInfo = TweenInfo.new(
-						3,
-						Enum.EasingStyle.Quad,
-						Enum.EasingDirection.InOut,
-						-1,
-						true
-					)
-					TweenService:Create(mesh, hopInfo, {
-						CFrame = mesh.CFrame + Vector3.new(0, 5, 0),
-					}):Play()
-					print(
-						("[GhostSpawner-Mesh] Pocong companion (Mbok Inem): mesh attached, parent=%s pos=%s"):format(
-							mesh.Parent and mesh.Parent:GetFullName() or "nil",
-							tostring(mesh.Position)
-						)
-					)
-				else
-					warn(
-						("[GhostSpawner-Mesh] Pocong companion: meshSrc=%s body=%s (asset descendants=%d)"):format(
-							tostring(meshSrc ~= nil),
-							tostring(body ~= nil),
-							#asset:GetDescendants()
-						)
-					)
-				end
-				asset:Destroy()
-			else
-				warn(
-					("[GhostSpawner-Mesh] LoadAsset Pocong (%d) FAILED: %s"):format(
-						POCONG_MESH_ASSET_ID,
-						tostring(asset)
-					)
-				)
-			end
-		end
+		-- Phase 8.5 Step 0.6 — overlay the Open Cloud mesh on the cosmetic rig
+		-- for ALL 4 hub companions (Pocong/Genderuwo/Kuntilanak/SetanPasar).
+		-- Pocong path here replaces the scope-locked Step 0.5 block (commit
+		-- e96956b) via the shared helper — behavior preserved + 3 new added.
+		attachMeshOverlay(ghost, vendor, ghostType)
 	end
 	return spawned
 end
