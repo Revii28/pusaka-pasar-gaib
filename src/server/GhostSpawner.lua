@@ -264,7 +264,8 @@ local function buildGenderuwo(base: Vector3): Model
 			transparency = 0.15,
 			parent = model,
 		})
-		attachTrail(arm, Color3.fromRGB(180, 30, 10), 0.8)
+		-- Red arm trail removed (Phase 8.5 Step 0.7 BUG 2) — was streaking
+		-- behind invisible arms once mesh overlay covered the rig.
 
 		local armBobInfo =
 			TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
@@ -482,6 +483,7 @@ type MeshOverlayConfig = {
 	hopAmplitude: number,
 	hopDuration: number,
 	bodyPartName: string,
+	rotationOffsetY: number?, -- radians; align native mesh facing with vendor LookVector
 }
 
 local MESH_CONFIG: { [GhostType]: MeshOverlayConfig } = {
@@ -500,18 +502,24 @@ local MESH_CONFIG: { [GhostType]: MeshOverlayConfig } = {
 		bodyPartName = "Torso",
 	},
 	Kuntilanak = {
+		-- Phase 8.5 Step 0.7 BUG 3: reduced from 2x6x2 (towering) to slimmer
+		-- ghost-girl proportions matching the source mesh's tall-thin silhouette.
 		assetId = 109481388805656,
-		size = Vector3.new(2, 6, 2),
+		size = Vector3.new(1.5, 4.5, 1.5),
 		hopAmplitude = 1,
 		hopDuration = 2.5,
 		bodyPartName = "BodyUpper",
 	},
 	SetanPasar = {
+		-- Phase 8.5 Step 0.7 BUG 4: enlarged from 3x6x3 (gepeng) to Pocong-ish
+		-- humanoid proportions + Y-rotation offset because native mesh faced
+		-- sideways relative to vendor LookVector.
 		assetId = 87806775240990,
-		size = Vector3.new(3, 6, 3),
+		size = Vector3.new(4, 7, 4),
 		hopAmplitude = 0.8,
 		hopDuration = 3,
 		bodyPartName = "Body",
+		rotationOffsetY = math.rad(90),
 	},
 }
 
@@ -543,7 +551,6 @@ local function attachMeshOverlay(ghost: Model, vendor: VendorInfo, ghostType: Gh
 		end
 	end
 	local body = ghost:FindFirstChild(cfg.bodyPartName) :: BasePart?
-	local head = ghost:FindFirstChild("Head") :: BasePart?
 	if not (meshSrc and body) then
 		warn(
 			("[GhostSpawner-Mesh] %s: meshSrc=%s body=%s (descendants=%d)"):format(
@@ -556,26 +563,47 @@ local function attachMeshOverlay(ghost: Model, vendor: VendorInfo, ghostType: Gh
 		container:Destroy()
 		return
 	end
+	-- Diagnostic (Phase 8.5 Step 0.7 BUG 3 verify-first): record native mesh
+	-- size before we override, log alongside the success message so the user F5
+	-- Output reveals whether Size override is actually shrinking the visual
+	-- (Kuntilanak was towering with size=2x6x2 — native may be ignoring Size).
+	local nativeSize = (meshSrc :: MeshPart).Size
 	local mesh = (meshSrc :: MeshPart):Clone()
 	mesh.Anchored = true
 	mesh.CanCollide = false
 	mesh.Massless = true
-	mesh.Size = cfg.size
+	mesh.Size = cfg.size -- override BEFORE Y-defense math (BUG 3)
 	mesh.Name = ghostType .. "Mesh"
+	-- Defensive: if asset shipped with a child SpecialMesh, normalize Scale so
+	-- the visual respects MeshPart.Size (avoids the SpecialMesh-overrides-Size
+	-- pitfall — verify-first per briefing 0.7).
+	local sm = mesh:FindFirstChildOfClass("SpecialMesh")
+	if sm then
+		sm.Scale = Vector3.new(1, 1, 1)
+	end
+
 	-- Polish 5.2 (no sinking): defensive Y floor so the mesh bottom can never
-	-- clip below the vendor's ground level (vendor.position.Y as proxy).
+	-- clip below the vendor's ground level (vendor.position.Y as proxy). Uses
+	-- the *overridden* Size so Kuntilanak doesn't get lifted by native huge Y.
 	local bodyPos = body.Position
 	local minY = vendor.position.Y + cfg.size.Y / 2 + 0.1
 	local liftedY = math.max(bodyPos.Y, minY)
 	local meshPos = Vector3.new(bodyPos.X, liftedY, bodyPos.Z)
-	-- Polish 5.1 (face forward): orient mesh along vendor.lookDirection so the
-	-- companion menghadap depan tenant (same direction as the NPC vendor).
+	-- Polish 5.1 (face forward) + Step 0.7 BUG 4 rotation offset: orient along
+	-- vendor.lookDirection, then nudge per-asset (some Sketchfab meshes import
+	-- with native +X/+Z facing instead of +Z so they look sideways).
+	local rotOffset = cfg.rotationOffsetY or 0
 	mesh.CFrame = CFrame.new(meshPos, meshPos + vendor.lookDirection)
+		* CFrame.Angles(0, rotOffset, 0)
 	mesh.Parent = ghost
 
-	body.Transparency = 1
-	if head then
-		head.Transparency = 1
+	-- Hide ALL primitive BaseParts so they don't peek behind the mesh (Phase
+	-- 8.5 Step 0.7 BUG 2: Genderuwo arms were streaking ghost-trails behind the
+	-- mesh). Aura/light/nametag still render — Transparency only hides geometry.
+	for _, p in ipairs(ghost:GetDescendants()) do
+		if p:IsA("BasePart") and p ~= mesh then
+			p.Transparency = 1
+		end
 	end
 
 	local hopInfo =
@@ -584,11 +612,13 @@ local function attachMeshOverlay(ghost: Model, vendor: VendorInfo, ghostType: Gh
 		CFrame = mesh.CFrame + Vector3.new(0, cfg.hopAmplitude, 0),
 	}):Play()
 	print(
-		("[GhostSpawner-Mesh] %s companion (%s): mesh attached, parent=%s pos=%s"):format(
+		("[GhostSpawner-Mesh] %s (%s): attached pos=%s native=%s after=%s rotY=%.2frad"):format(
 			ghostType,
 			vendor.name,
-			mesh.Parent and mesh.Parent:GetFullName() or "nil",
-			tostring(mesh.Position)
+			tostring(mesh.Position),
+			tostring(nativeSize),
+			tostring(mesh.Size),
+			rotOffset
 		)
 	)
 	container:Destroy()

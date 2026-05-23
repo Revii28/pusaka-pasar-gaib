@@ -17,7 +17,6 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local serverFolderRoot = ServerScriptService:WaitForChild("Server")
 local KioskBuilder = require(serverFolderRoot:WaitForChild("KioskBuilder"))
-local MapHelpers = require(serverFolderRoot:WaitForChild("maps"):WaitForChild("MapHelpers"))
 
 local NPCSpawner = {}
 
@@ -52,7 +51,9 @@ local VENDORS: { VendorSpec } = {
 	},
 	{
 		name = "Pak Tukijo",
-		floorPosition = Vector3.new(-52, 0, -22),
+		-- Mirror Mbok Inem's (38, 0, -42) for layout symmetry — kiosk was too far
+		-- forward at (-52, 0, -22), broke grid alignment (Phase 8.5 Step 0.7 BUG 5).
+		floorPosition = Vector3.new(-42, 0, -42),
 		torsoColor = Color3.fromRGB(30, 40, 80),
 		dialogue = "Bunga 7 rupa, daun sirih, telur cemani — komplit di sini. Mau ritual apa malam ini?",
 	},
@@ -171,10 +172,11 @@ function NPCSpawner.spawnAll(): { Model }
 				spec.floorPosition.Z
 			)
 		)
-		local terrainY = MapHelpers.getTerrainY(spec.floorPosition.X, spec.floorPosition.Z)
-		local placePosition =
-			Vector3.new(spec.floorPosition.X, terrainY + FEET_Y_OFFSET, spec.floorPosition.Z)
-		local lookTarget = Vector3.new(HUB_CENTER.X, terrainY + FEET_Y_OFFSET, HUB_CENTER.Z)
+		-- Use spec.floorPosition.Y as hub ground (matches buildRig line 127) —
+		-- terrainY query was causing kiosk/NPC vertical mismatch when hub terrain
+		-- != 0 (Phase 8.5 Step 0.7 BUG 1: kiosks sinking, only roof visible).
+		local placePosition = spec.floorPosition + Vector3.new(0, FEET_Y_OFFSET, 0)
+		local lookTarget = HUB_CENTER + Vector3.new(0, FEET_Y_OFFSET, 0)
 		local lookDirection = (lookTarget - placePosition).Unit
 
 		local rigOk, rigErr = pcall(function()
